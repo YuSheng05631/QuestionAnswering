@@ -1,0 +1,8 @@
+C:\Users\test\Desktop\專題\C#\QuestionAnswering\QuestionAnswering\bin\Debug\QuestionAnswering.exe.config
+C:\Users\test\Desktop\專題\C#\QuestionAnswering\QuestionAnswering\bin\Debug\QuestionAnswering.exe
+C:\Users\test\Desktop\專題\C#\QuestionAnswering\QuestionAnswering\bin\Debug\QuestionAnswering.pdb
+C:\Users\test\Desktop\專題\C#\QuestionAnswering\QuestionAnswering\bin\Debug\StanfordParserTools.dll
+C:\Users\test\Desktop\專題\C#\QuestionAnswering\QuestionAnswering\bin\Debug\StanfordParserTools.pdb
+C:\Users\test\Desktop\專題\C#\QuestionAnswering\QuestionAnswering\obj\Debug\QuestionAnswering.exe
+C:\Users\test\Desktop\專題\C#\QuestionAnswering\QuestionAnswering\obj\Debug\QuestionAnswering.pdb
+C:\Users\test\Desktop\專題\C#\QuestionAnswering\QuestionAnswering\obj\Debug\QuestionAnswering.csprojResolveAssemblyReference.cache

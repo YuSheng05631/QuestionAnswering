@@ -8,46 +8,29 @@ namespace QuestionAnswering
 {
     class Program
     {
-        static void Main(string[] args)
+        static void userInputSentence()
         {
             while (true)
             {
-                string sentence = Console.ReadLine();
-                List<string> segmentList;
-                List<MainTerm> MTList, truthList;
-                Segment.getSegment(sentence, out segmentList, out MTList);
-                truthList = Truth.getTruth(MTList);
-                
-                //print
-                Console.WriteLine("==========segmentList==========");
-                foreach (string str in segmentList) Console.WriteLine(str);
-                Console.WriteLine();
-                Console.WriteLine("==========MTList==========");
-                foreach (MainTerm mt in MTList)
-                {
-                    foreach (string str in mt.W) Console.WriteLine("W: " + str);
-                    foreach (string str in mt.SQ) Console.WriteLine("SQ: " + str);
-                    foreach (string str in mt.PP) Console.WriteLine("PP: " + str);
-                    foreach (string str in mt.S) Console.WriteLine("S: " + str);
-                    foreach (string str in mt.V) Console.WriteLine("V: " + str);
-                    foreach (string str in mt.VBN) Console.WriteLine("VBN: " + str);
-                    foreach (string str in mt.O) Console.WriteLine("O: " + str);
-                    Console.WriteLine();
-                }
-                Console.WriteLine("==========truthList==========");
-                foreach (MainTerm mt in truthList)
-                {
-                    foreach (string str in mt.W) Console.WriteLine("W: " + str);
-                    foreach (string str in mt.SQ) Console.WriteLine("SQ: " + str);
-                    foreach (string str in mt.PP) Console.WriteLine("PP: " + str);
-                    foreach (string str in mt.S) Console.WriteLine("S: " + str);
-                    foreach (string str in mt.V) Console.WriteLine("V: " + str);
-                    foreach (string str in mt.VBN) Console.WriteLine("VBN: " + str);
-                    foreach (string str in mt.O) Console.WriteLine("O: " + str);
-                    Console.WriteLine();
-                }
+                string sentence = Console.ReadLine().Trim();
+
+                ROOT root = POSTree.getPOSTree(sentence);
+                Question.transformQuestion(root);
+
                 Console.WriteLine("========================================\n");
             }
+        }
+        static void Main(string[] args)
+        {
+            //userInputSentence();
+
+            string s1 = "What you have to do is to leave.";
+            string s2 = "What you have to do is to stay.";
+            ROOT root1 = POSTree.getPOSTree(s1);
+            ROOT root2 = POSTree.getPOSTree(s2);
+            Console.WriteLine(Inference.isSamePOSTree(root1, root2));
+
+            Console.ReadLine();
         }
     }
 }

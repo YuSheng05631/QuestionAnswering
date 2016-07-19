@@ -111,7 +111,7 @@ namespace QuestionAnswering
             {
                 foreach (WordAndPOS wap in s.VP.words)
                 {
-                    if (!hasSetNNans && wap.pos == "VBG") sentence += SQWord + " ";
+                    if (!hasSetNNans && (wap.pos == "VBG" || wap.pos == "VBN")) sentence += SQWord + " ";
                     sentence += wap.word + " ";
                 }
                 if (!hasSetNNans) sentence += "NNans ";
@@ -122,6 +122,16 @@ namespace QuestionAnswering
             {
                 foreach (WordAndPOS wap in s.PP.words) sentence += wap.word + " ";
                 foreach (S sNext in s.PP.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+            }
+            if (s.ADJP != null)
+            {
+                foreach (WordAndPOS wap in s.ADJP.words) sentence += wap.word + " ";
+                foreach (S sNext in s.ADJP.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+            }
+            if (s.ADVP != null)
+            {
+                foreach (WordAndPOS wap in s.ADVP.words) sentence += wap.word + " ";
+                foreach (S sNext in s.ADVP.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
             }
             if (s.Ss != null)
             {
@@ -161,6 +171,16 @@ namespace QuestionAnswering
             {
                 foreach (WordAndPOS wap in s.PP.words) sentence += wap.word + " ";
                 foreach (S sNext in s.PP.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+            }
+            if (s.ADJP != null)
+            {
+                foreach (WordAndPOS wap in s.ADJP.words) sentence += wap.word + " ";
+                foreach (S sNext in s.ADJP.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+            }
+            if (s.ADVP != null)
+            {
+                foreach (WordAndPOS wap in s.ADVP.words) sentence += wap.word + " ";
+                foreach (S sNext in s.ADVP.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
             }
             if (s.Ss != null)
             {

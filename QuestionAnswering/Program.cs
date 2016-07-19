@@ -24,11 +24,22 @@ namespace QuestionAnswering
         {
             //userInputSentence();
 
-            string s1 = "What you have to do is to leave.";
-            string s2 = "What you have to do is to stay.";
-            ROOT root1 = POSTree.getPOSTree(s1);
-            ROOT root2 = POSTree.getPOSTree(s2);
-            Console.WriteLine(Inference.isSamePOSTree(root1, root2));
+            /*string s1 = "What were the people of the Mitanni Kingdom called?";
+            string s2 = "The people of the Mitanni Kingdom were called Hurrian.";
+            string s3 = "Write in the name of one city-state involved.";
+
+            List<ROOT> rootList = new List<ROOT>();
+            rootList.Add(POSTree.getPOSTree(s1));
+            rootList.Add(POSTree.getPOSTree(s2));
+            rootList.Add(POSTree.getPOSTree(s3));
+
+            SaveData.savePOSTree(rootList, "test");*/
+
+            List<ROOT> rootList = SaveData.loadPOSTree("test");
+            foreach (ROOT root in rootList)
+            {
+                POSTree.printROOT(root);
+            }
 
             Console.ReadLine();
         }

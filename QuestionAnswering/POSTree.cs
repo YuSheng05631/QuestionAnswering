@@ -43,8 +43,8 @@ namespace QuestionAnswering
     //Sentence
     public class S
     {
-        //ADJP、ADVP、NN、CC
-        public PL Ss, WH, SQ, NP, VP, PP;
+        //NN、CC
+        public PL Ss, WH, SQ, NP, VP, PP, ADJP, ADVP;
         public S()
         {
             this.Ss = new PL();
@@ -53,6 +53,8 @@ namespace QuestionAnswering
             this.NP = new PL();
             this.VP = new PL();
             this.PP = new PL();
+            this.ADJP = new PL();
+            this.ADVP = new PL();
         }
         //將空白的變數設成null
         public void setNull()
@@ -63,6 +65,8 @@ namespace QuestionAnswering
             if (this.NP.words.Count == 0 && this.NP.next.Count == 0) this.NP = null;
             if (this.VP.words.Count == 0 && this.VP.next.Count == 0) this.VP = null;
             if (this.PP.words.Count == 0 && this.PP.next.Count == 0) this.PP = null;
+            if (this.ADJP.words.Count == 0 && this.ADJP.next.Count == 0) this.ADJP = null;
+            if (this.ADVP.words.Count == 0 && this.ADVP.next.Count == 0) this.ADVP = null;
         }
     }
     //Phrase Level
@@ -280,6 +284,18 @@ namespace QuestionAnswering
                 S sTemp = setPOS(SList);
                 if (sTemp != null) sThis.PP.next.Add(sTemp);
             }
+            else if (unit.pos == "ADJP")
+            {
+                sThis.ADJP.words = unit.words;
+                S sTemp = setPOS(SList);
+                if (sTemp != null) sThis.ADJP.next.Add(sTemp);
+            }
+            else if (unit.pos == "ADVP")
+            {
+                sThis.ADVP.words = unit.words;
+                S sTemp = setPOS(SList);
+                if (sTemp != null) sThis.ADVP.next.Add(sTemp);
+            }
             else return null;   //不屬於以上pos就回傳null
 
             sThis.setNull();    //將空白的變數設成null
@@ -298,13 +314,15 @@ namespace QuestionAnswering
                 if (s.NP != null) sTemp.NP = s.NP;
                 if (s.VP != null) sTemp.VP = s.VP;
                 if (s.PP != null) sTemp.PP = s.PP;
+                if (s.ADJP != null) sTemp.ADJP = s.ADJP;
+                if (s.ADVP != null) sTemp.ADVP = s.ADVP;
             }
             sTemp.setNull();
             return sTemp;
         }
 
         //印出ROOT(Start)
-        private static void printROOT(ROOT root)
+        public static void printROOT(ROOT root)
         {
             if (root.S.Count == 0 || root.S[0] == null)
             {
@@ -359,6 +377,20 @@ namespace QuestionAnswering
                 foreach (WordAndPOS wap in s.PP.words) Console.Write(wap.word + " ");
                 Console.WriteLine();
                 foreach (S sNext in s.PP.next) printROOTTraversal(sNext, indent);
+            }
+            if (s.ADJP != null)
+            {
+                Console.Write("ADJP" + line);
+                foreach (WordAndPOS wap in s.ADJP.words) Console.Write(wap.word + " ");
+                Console.WriteLine();
+                foreach (S sNext in s.ADJP.next) printROOTTraversal(sNext, indent);
+            }
+            if (s.ADVP != null)
+            {
+                Console.Write("ADVP" + line);
+                foreach (WordAndPOS wap in s.ADVP.words) Console.Write(wap.word + " ");
+                Console.WriteLine();
+                foreach (S sNext in s.ADVP.next) printROOTTraversal(sNext, indent);
             }
             if (s.Ss != null)
             {

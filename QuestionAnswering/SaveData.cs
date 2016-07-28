@@ -48,5 +48,43 @@ namespace QuestionAnswering
             }
             return rootList;
         }
+
+        //儲存Thesaurus
+        public static void savaThesaurus(List<string> synonymList, List<string> antonymList, string fileName)
+        {
+            using (StreamWriter writer = new StreamWriter("SaveThesaurus\\" + fileName + ".txt"))
+            {
+                //刷新紀錄檔
+            }
+            using (StreamWriter writer = new StreamWriter("SaveThesaurus\\" + fileName + ".txt", true))
+            {
+                string saveData1 = JsonConvert.SerializeObject(synonymList);
+                string saveData2 = JsonConvert.SerializeObject(antonymList);
+                writer.WriteLine(saveData1);
+                writer.WriteLine(saveData2);
+            }
+        }
+        //載入Thesaurus
+        public static void loadThesaurus(out List<string> synonymList, out List<string> antonymList, string fileName)
+        {
+            synonymList = new List<string>();
+            antonymList = new List<string>();
+            string saveData1, saveData2;
+            List<ROOT> rootList = new List<ROOT>();
+            try
+            {
+                using (StreamReader reader = new StreamReader("SaveThesaurus\\" + fileName + ".txt"))
+                {
+                    saveData1 = reader.ReadLine();
+                    saveData2 = reader.ReadLine();
+                    synonymList = JsonConvert.DeserializeObject<List<string>>(saveData1);
+                    antonymList = JsonConvert.DeserializeObject<List<string>>(saveData2);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                Console.WriteLine("找不到 " + fileName + ".txt 記錄檔。");
+            }
+        }
     }
 }

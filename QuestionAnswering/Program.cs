@@ -14,21 +14,26 @@ namespace QuestionAnswering
             {
                 string sentence = Console.ReadLine().Trim();
                 if (sentence == "") continue;
-
                 ROOT root = POSTree.getPOSTree(sentence);
-                Question.transformQuestion(root);
+                if (Question.isQuestion(root)) root = Question.transformQuestion(root);
+                POSTree.printROOT(root);
 
                 Console.WriteLine("========================================\n");
             }
         }
         static void Main(string[] args)
         {
-            userInputSentence();
+            //userInputSentence();
 
-            string s1 = "Write the name of your cat.";
-            ROOT root1 = POSTree.getPOSTree(s1);
-            POSTree.printROOT(root1);
+            string word = "babylonia";
+            List<string> synonymList, antonymList;
+            Thesaurus.getThesaurus(word, out synonymList, out antonymList);
 
+
+            Console.WriteLine("synonymList: " + synonymList.Count);
+            foreach (string str in synonymList) Console.Write(str + ", ");
+            Console.WriteLine("\n\nantonymList: " + antonymList.Count);
+            foreach (string str in antonymList) Console.Write(str + ", ");
 
             Console.ReadLine();
         }

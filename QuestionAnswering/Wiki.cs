@@ -189,11 +189,6 @@ namespace QuestionAnswering
             return rootList;
         }
 
-        //載入wiki所有句子的POSTree
-        public static List<ROOT> loadWikiPOSTree(string wikiTitle)
-        {
-            return SaveData.loadPOSTree(wikiTitle);
-        }
         //main
         public static List<ROOT> getWikiPOSTree(string keyword)
         {
@@ -212,8 +207,8 @@ namespace QuestionAnswering
             //取得wiki的標題
             string wikiTitle = getWikiTitle(url);
 
-            //載入wiki所有句子的POSTree
-            List<ROOT> rootList = loadWikiPOSTree(wikiTitle);
+            //載入POSTree(List)
+            List<ROOT> rootList = SaveData.loadPOSTree(wikiTitle);
             if (rootList.Count == 0)    //若沒有記錄檔
             {
                 //取得wiki上<p>標籤的所有句子

@@ -43,45 +43,67 @@ namespace QuestionAnswering
     //Sentence
     public class S
     {
-        //NN、CC
-        public PL Ss, WH, SQ, NP, VP, PP, ADJP, ADVP;
+        //NN、CC、QP
+        public List<PL> Ss, WH, SQ, NP, VP, PP, ADJP, ADVP;
         public S()
         {
-            this.Ss = new PL();
-            this.WH = new PL();
-            this.SQ = new PL();
-            this.NP = new PL();
-            this.VP = new PL();
-            this.PP = new PL();
-            this.ADJP = new PL();
-            this.ADVP = new PL();
+            this.Ss = new List<PL>();
+            this.WH = new List<PL>();
+            this.SQ = new List<PL>();
+            this.NP = new List<PL>();
+            this.VP = new List<PL>();
+            this.PP = new List<PL>();
+            this.ADJP = new List<PL>();
+            this.ADVP = new List<PL>();
         }
         //將空白的變數設成null
         public void setNull()
         {
-            if (this.Ss.words.Count == 0 && this.Ss.next.Count == 0) this.Ss = null;
-            if (this.WH.words.Count == 0 && this.WH.next.Count == 0) this.WH = null;
-            if (this.SQ.words.Count == 0 && this.SQ.next.Count == 0) this.SQ = null;
-            if (this.NP.words.Count == 0 && this.NP.next.Count == 0) this.NP = null;
-            if (this.VP.words.Count == 0 && this.VP.next.Count == 0) this.VP = null;
-            if (this.PP.words.Count == 0 && this.PP.next.Count == 0) this.PP = null;
-            if (this.ADJP.words.Count == 0 && this.ADJP.next.Count == 0) this.ADJP = null;
-            if (this.ADVP.words.Count == 0 && this.ADVP.next.Count == 0) this.ADVP = null;
+            if (this.Ss.Count == 0) this.Ss = null;
+            if (this.WH.Count == 0) this.WH = null;
+            if (this.SQ.Count == 0) this.SQ = null;
+            if (this.NP.Count == 0) this.NP = null;
+            if (this.VP.Count == 0) this.VP = null;
+            if (this.PP.Count == 0) this.PP = null;
+            if (this.ADJP.Count == 0) this.ADJP = null;
+            if (this.ADVP.Count == 0) this.ADVP = null;
         }
     }
     //Phrase Level
     public class PL
     {
         public List<WordAndPOS> words;
-        public List<S> next;
+        public S next;
         public PL()
         {
             this.words = new List<WordAndPOS>();
-            this.next = new List<S>();
+            //this.next = new S();
         }
     }
     public class POSTree
     {
+        //將填空的標籤取代成NNans + 標籤字母
+        private static string replaceSlot(string sentence)
+        {
+            int first = sentence.IndexOf("(");
+            int last = first + 2;
+            while (first != -1)
+            {
+                if (sentence[last] == ')')  //括號裡只有一個字
+                {
+                    string cut = sentence.Substring(first + 1, 1);
+                    if (Convert.ToChar(cut) >= 65 && Convert.ToChar(cut) <= 90) //是大寫字母
+                    {
+                        sentence = sentence.Substring(0, first) + sentence.Substring(last + 1);
+                        sentence = sentence.Insert(first, "NNans" + cut);
+                    }
+                }
+                first = sentence.IndexOf("(", first + 1);
+                last = first + 2;
+            }
+            return sentence;
+        }
+
         //取得句子的詞性標記結果(依行分割)
         private static string[] getLPLines(string sentence)
         {
@@ -248,53 +270,59 @@ namespace QuestionAnswering
             S sThis = new S();
             if (unit.pos == "S" || unit.pos.IndexOf("SBAR") == 0)
             {
-                //若自己是S，next也是S，直接將Ss設置SList
-                //若自己是S，next不是S，將SList的各pos彙集成一個S，並將Ss設成它
-                sThis.Ss.words = unit.words;
-                if (unit.next.Count != 0 && unit.next[0].pos == "S") sThis.Ss.next = SList;
-                else sThis.Ss.next.Add(setPOS(SList));
+                sThis.Ss.Add(new PL());
+                sThis.Ss[0].words = unit.words;
+                S sTemp = setPOS(SList);
+                if (sTemp != null) sThis.Ss[0].next = sTemp;
             }
             else if (unit.pos.IndexOf("WH") == 0)
             {
-                sThis.WH.words = unit.words;
+                sThis.WH.Add(new PL());
+                sThis.WH[0].words = unit.words;
                 S sTemp = setPOS(SList);
-                if (sTemp != null) sThis.WH.next.Add(sTemp);
+                if (sTemp != null) sThis.WH[0].next = sTemp;
             }
-            else if (unit.pos == "SQ")
+            else if (unit.pos.IndexOf("SQ") == 0)
             {
-                sThis.SQ.words = unit.words;
+                sThis.SQ.Add(new PL());
+                sThis.SQ[0].words = unit.words;
                 S sTemp = setPOS(SList);
-                if (sTemp != null) sThis.SQ.next.Add(sTemp);
+                if (sTemp != null) sThis.SQ[0].next = sTemp;
             }
-            else if (unit.pos == "NP")
+            else if (unit.pos.IndexOf("NP") == 0)
             {
-                sThis.NP.words = unit.words;
+                sThis.NP.Add(new PL());
+                sThis.NP[0].words = unit.words;
                 S sTemp = setPOS(SList);
-                if (sTemp != null) sThis.NP.next.Add(sTemp);
+                if (sTemp != null) sThis.NP[0].next = sTemp;
             }
-            else if (unit.pos == "VP")
+            else if (unit.pos.IndexOf("VP") == 0)
             {
-                sThis.VP.words = unit.words;
+                sThis.VP.Add(new PL());
+                sThis.VP[0].words = unit.words;
                 S sTemp = setPOS(SList);
-                if (sTemp != null) sThis.VP.next.Add(sTemp);
+                if (sTemp != null) sThis.VP[0].next = sTemp;
             }
-            else if (unit.pos == "PP")
+            else if (unit.pos.IndexOf("PP") == 0)
             {
-                sThis.PP.words = unit.words;
+                sThis.PP.Add(new PL());
+                sThis.PP[0].words = unit.words;
                 S sTemp = setPOS(SList);
-                if (sTemp != null) sThis.PP.next.Add(sTemp);
+                if (sTemp != null) sThis.PP[0].next = sTemp;
             }
-            else if (unit.pos == "ADJP")
+            else if (unit.pos.IndexOf("ADJP") == 0)
             {
-                sThis.ADJP.words = unit.words;
+                sThis.ADJP.Add(new PL());
+                sThis.ADJP[0].words = unit.words;
                 S sTemp = setPOS(SList);
-                if (sTemp != null) sThis.ADJP.next.Add(sTemp);
+                if (sTemp != null) sThis.ADJP[0].next = sTemp;
             }
-            else if (unit.pos == "ADVP")
+            else if (unit.pos.IndexOf("ADVP") == 0)
             {
-                sThis.ADVP.words = unit.words;
+                sThis.ADVP.Add(new PL());
+                sThis.ADVP[0].words = unit.words;
                 S sTemp = setPOS(SList);
-                if (sTemp != null) sThis.ADVP.next.Add(sTemp);
+                if (sTemp != null) sThis.ADVP[0].next = sTemp;
             }
             else return null;   //不屬於以上pos就回傳null
 
@@ -308,14 +336,14 @@ namespace QuestionAnswering
             S sTemp = new S();
             foreach (S s in SList)
             {
-                if (s.Ss != null) sTemp.Ss = s.Ss;
-                if (s.WH != null) sTemp.WH = s.WH;
-                if (s.SQ != null) sTemp.SQ = s.SQ;
-                if (s.NP != null) sTemp.NP = s.NP;
-                if (s.VP != null) sTemp.VP = s.VP;
-                if (s.PP != null) sTemp.PP = s.PP;
-                if (s.ADJP != null) sTemp.ADJP = s.ADJP;
-                if (s.ADVP != null) sTemp.ADVP = s.ADVP;
+                if (s.Ss != null) sTemp.Ss.AddRange(s.Ss);
+                if (s.WH != null) sTemp.WH.AddRange(s.WH);
+                if (s.SQ != null) sTemp.SQ.AddRange(s.SQ);
+                if (s.NP != null) sTemp.NP.AddRange(s.NP);
+                if (s.VP != null) sTemp.VP.AddRange(s.VP);
+                if (s.PP != null) sTemp.PP.AddRange(s.PP);
+                if (s.ADJP != null) sTemp.ADJP.AddRange(s.ADJP);
+                if (s.ADVP != null) sTemp.ADVP.AddRange(s.ADVP);
             }
             sTemp.setNull();
             return sTemp;
@@ -345,65 +373,92 @@ namespace QuestionAnswering
 
             if (s.WH != null)
             {
-                Console.Write("WH  " + line);
-                foreach (WordAndPOS wap in s.WH.words) Console.Write(wap.word + " ");
-                Console.WriteLine();
-                foreach (S sNext in s.WH.next) printROOTTraversal(sNext, indent);
+                foreach (PL pl in s.WH)
+                {
+                    Console.Write("WH  " + line);
+                    foreach (WordAndPOS wap in pl.words) Console.Write(wap.word + " ");
+                    Console.WriteLine();
+                    if (pl.next != null) printROOTTraversal(pl.next, indent);
+                }
             }
             if (s.SQ != null)
             {
-                Console.Write("SQ  " + line);
-                foreach (WordAndPOS wap in s.SQ.words) Console.Write(wap.word + " ");
-                Console.WriteLine();
-                foreach (S sNext in s.SQ.next) printROOTTraversal(sNext, indent);
+                foreach (PL pl in s.SQ)
+                {
+                    Console.Write("SQ  " + line);
+                    foreach (WordAndPOS wap in pl.words) Console.Write(wap.word + " ");
+                    Console.WriteLine();
+                    if (pl.next != null) printROOTTraversal(pl.next, indent);
+                }
             }
             if (s.NP != null)
             {
-                Console.Write("NP  " + line);
-                foreach (WordAndPOS wap in s.NP.words) Console.Write(wap.word + " ");
-                Console.WriteLine();
-                foreach (S sNext in s.NP.next) printROOTTraversal(sNext, indent);
+                foreach (PL pl in s.NP)
+                {
+                    Console.Write("NP  " + line);
+                    foreach (WordAndPOS wap in pl.words) Console.Write(wap.word + " ");
+                    Console.WriteLine();
+                    if (pl.next != null) printROOTTraversal(pl.next, indent);
+                }
             }
             if (s.VP != null)
             {
-                Console.Write("VP  " + line);
-                foreach (WordAndPOS wap in s.VP.words) Console.Write(wap.word + " ");
-                Console.WriteLine();
-                foreach (S sNext in s.VP.next) printROOTTraversal(sNext, indent);
+                foreach (PL pl in s.VP)
+                {
+                    Console.Write("VP  " + line);
+                    foreach (WordAndPOS wap in pl.words) Console.Write(wap.word + " ");
+                    Console.WriteLine();
+                    if (pl.next != null) printROOTTraversal(pl.next, indent);
+                }
             }
             if (s.PP != null)
             {
-                Console.Write("PP  " + line);
-                foreach (WordAndPOS wap in s.PP.words) Console.Write(wap.word + " ");
-                Console.WriteLine();
-                foreach (S sNext in s.PP.next) printROOTTraversal(sNext, indent);
+                foreach (PL pl in s.PP)
+                {
+                    Console.Write("PP  " + line);
+                    foreach (WordAndPOS wap in pl.words) Console.Write(wap.word + " ");
+                    Console.WriteLine();
+                    if (pl.next != null) printROOTTraversal(pl.next, indent);
+                }
             }
             if (s.ADJP != null)
             {
-                Console.Write("ADJP" + line);
-                foreach (WordAndPOS wap in s.ADJP.words) Console.Write(wap.word + " ");
-                Console.WriteLine();
-                foreach (S sNext in s.ADJP.next) printROOTTraversal(sNext, indent);
+                foreach (PL pl in s.ADJP)
+                {
+                    Console.Write("ADJP" + line);
+                    foreach (WordAndPOS wap in pl.words) Console.Write(wap.word + " ");
+                    Console.WriteLine();
+                    if (pl.next != null) printROOTTraversal(pl.next, indent);
+                }
             }
             if (s.ADVP != null)
             {
-                Console.Write("ADVP" + line);
-                foreach (WordAndPOS wap in s.ADVP.words) Console.Write(wap.word + " ");
-                Console.WriteLine();
-                foreach (S sNext in s.ADVP.next) printROOTTraversal(sNext, indent);
+                foreach (PL pl in s.ADVP)
+                {
+                    Console.Write("ADVP" + line);
+                    foreach (WordAndPOS wap in pl.words) Console.Write(wap.word + " ");
+                    Console.WriteLine();
+                    if (pl.next != null) printROOTTraversal(pl.next, indent);
+                }
             }
             if (s.Ss != null)
             {
-                Console.Write("S   " + line);
-                foreach (WordAndPOS wap in s.Ss.words) Console.Write(wap.word + " ");
-                Console.WriteLine();
-                foreach (S sNext in s.Ss.next) printROOTTraversal(sNext, indent);
+                foreach (PL pl in s.Ss)
+                {
+                    Console.Write("S   " + line);
+                    foreach (WordAndPOS wap in pl.words) Console.Write(wap.word + " ");
+                    Console.WriteLine();
+                    if (pl.next != null) printROOTTraversal(pl.next, indent);
+                }
             }
         }
 
         //main
         public static ROOT getPOSTree(string sentence)
         {
+            //將填空的標籤取代成NNans
+            sentence = replaceSlot(sentence);
+
             //取得句子的詞性標記結果(依行分割)
             string[] LPLines = getLPLines(sentence);
 

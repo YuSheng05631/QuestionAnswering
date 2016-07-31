@@ -23,7 +23,7 @@ namespace QuestionAnswering
             if (s.WH != null && s.SQ != null) isQ = true;   //一檢查到問句就不需要繼續檢查了
             else if (s.Ss != null)   //只檢查Ss
             {
-                foreach (S sNext in s.Ss.next) isQ = isQ || isQuestionTraversal(sNext);
+                foreach (PL pl in s.Ss) if (pl.next != null) isQ = isQ || isQuestionTraversal(pl.next);
             }
             return isQ;
         }
@@ -35,12 +35,20 @@ namespace QuestionAnswering
             //1. SQ連接NP+VP。 e.g. What do you mean?
             //2. SQ連接NP/VP。 e.g. What is your name?
             //3. 命令型問句(第一個S底下有VP無NP)。 e.g. Write in the name of your cat.
-            //4. 填空型問句(POSTree包含PRN)。 e.g. Hammurabi belonged to the dynasty of the (B) people.
+            //4. 填空型問句(已在getPOSTree轉換標籤)。 e.g. Hammurabi belonged to the dynasty of the (B) people.
             int type = 0;
-            foreach (S s in root.S) //檢查type 1 or 2
+            foreach (S s in root.S) //檢查type 4
             {
-                type = getQuestionTypeTraversal1or2(s);
+                type = getQuestionTypeTraversal4(s);
                 if (type != 0) break;
+            }
+            if (type == 0)  //檢查type 1 or 2
+            {
+                foreach (S s in root.S)
+                {
+                    type = getQuestionTypeTraversal1or2(s);
+                    if (type != 0) break;
+                }
             }
             if (type == 0)  //檢查type 3
             {
@@ -50,28 +58,20 @@ namespace QuestionAnswering
                     if (type != 0) break;
                 }
             }
-            if (type == 0)  //檢查type 4
-            {
-                foreach (S s in root.S)
-                {
-                    type = getQuestionTypeTraversal4(s);
-                    if (type != 0) break;
-                }
-            }
             return type;
         }
         //取得問句類型1 or 2(Traversal)
         private static int getQuestionTypeTraversal1or2(S s)
         {
             int type = 0;
-            if (s.WH != null && s.SQ != null && s.SQ.next.Count != 0)   //一檢查到問句就不需要繼續檢查了
+            if (s.WH != null && s.SQ != null && s.SQ[0].next != null)   //一檢查到問句就不需要繼續檢查了
             {
-                if (s.SQ.next[0].NP != null && s.SQ.next[0].VP != null) type = 1;   //暫定SQ的next只有一個
+                if (s.SQ[0].next.NP != null && s.SQ[0].next.VP != null) type = 1;   //暫定SQ的next只有一個
                 else type = 2;
             }
             else if (s.Ss != null)   //只檢查Ss
             {
-                foreach (S sNext in s.Ss.next) type = getQuestionTypeTraversal1or2(sNext);
+                foreach (PL pl in s.Ss) if (pl.next != null) type = getQuestionTypeTraversal1or2(pl.next);
             }
             return type;
         }
@@ -82,7 +82,7 @@ namespace QuestionAnswering
             if (s.VP != null && s.NP == null) type = 3; //一檢查到問句就不需要繼續檢查了
             else if (s.Ss != null)   //只檢查Ss
             {
-                foreach (S sNext in s.Ss.next) type = getQuestionTypeTraversal3(sNext);
+                foreach (PL pl in s.Ss) if (pl.next != null) type = getQuestionTypeTraversal3(pl.next);
             }
             return type;
         }
@@ -90,7 +90,126 @@ namespace QuestionAnswering
         private static int getQuestionTypeTraversal4(S s)
         {
             int type = 0;
-
+            if (s.WH != null)
+            {
+                foreach (PL pl in s.WH)
+                {
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (wap.word.IndexOf("NNans") == 0)
+                        {
+                            type = 4;
+                            return type;
+                        }
+                    }
+                    if (pl.next != null) type = getQuestionTypeTraversal4(pl.next);
+                }
+            }
+            if (s.SQ != null)
+            {
+                foreach (PL pl in s.SQ)
+                {
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (wap.word.IndexOf("NNans") == 0)
+                        {
+                            type = 4;
+                            return type;
+                        }
+                    }
+                    if (pl.next != null) type = getQuestionTypeTraversal4(pl.next);
+                }
+            }
+            if (s.NP != null)
+            {
+                foreach (PL pl in s.NP)
+                {
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (wap.word.IndexOf("NNans") == 0)
+                        {
+                            type = 4;
+                            return type;
+                        }
+                    }
+                    if (pl.next != null) type = getQuestionTypeTraversal4(pl.next);
+                }
+            }
+            if (s.VP != null)
+            {
+                foreach (PL pl in s.VP)
+                {
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (wap.word.IndexOf("NNans") == 0)
+                        {
+                            type = 4;
+                            return type;
+                        }
+                    }
+                    if (pl.next != null) type = getQuestionTypeTraversal4(pl.next);
+                }
+            }
+            if (s.PP != null)
+            {
+                foreach (PL pl in s.PP)
+                {
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (wap.word.IndexOf("NNans") == 0)
+                        {
+                            type = 4;
+                            return type;
+                        }
+                    }
+                    if (pl.next != null) type = getQuestionTypeTraversal4(pl.next);
+                }
+            }
+            if (s.ADJP != null)
+            {
+                foreach (PL pl in s.ADJP)
+                {
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (wap.word.IndexOf("NNans") == 0)
+                        {
+                            type = 4;
+                            return type;
+                        }
+                    }
+                    if (pl.next != null) type = getQuestionTypeTraversal4(pl.next);
+                }
+            }
+            if (s.ADVP != null)
+            {
+                foreach (PL pl in s.ADVP)
+                {
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (wap.word.IndexOf("NNans") == 0)
+                        {
+                            type = 4;
+                            return type;
+                        }
+                    }
+                    if (pl.next != null) type = getQuestionTypeTraversal4(pl.next);
+                }
+            }
+            if (s.Ss != null)
+            {
+                foreach (PL pl in s.Ss)
+                {
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (wap.word.IndexOf("NNans") == 0)
+                        {
+                            type = 4;
+                            return type;
+                        }
+                    }
+                    if (pl.next != null) type = getQuestionTypeTraversal4(pl.next);
+                }
+            }
             return type;
         }
 
@@ -103,7 +222,7 @@ namespace QuestionAnswering
             //取得問句類型(Start)
             int type = getQuestionType(root);
             Console.WriteLine("type: " + type);
-            if (type == 0) return root; //0. 非問句
+            if (type == 0 || type == 4) return root; //0. 非問句 or 4. 填空型問句(已在getPOSTree轉換標籤)
             else if (type == 1)         //1. SQ連接NP+VP。 e.g. What do you mean?
             {
                 foreach (S s in root.S)
@@ -122,10 +241,6 @@ namespace QuestionAnswering
                 sentence = "NNans is ";
                 foreach (S s in root.S) sentence += transformQuestionTraversalType3(s, false);
             }
-            else if (type == 4)         //4. 填空型問句(POSTree包含PRN)。 e.g. Hammurabi belonged to the dynasty of the (B) people.
-            {
-
-            }
             rootNew = POSTree.getPOSTree(sentence);
             return rootNew;
         }
@@ -137,49 +252,73 @@ namespace QuestionAnswering
             string sentence = "";
             if (s.WH != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.WH.words) sentence += wap.word + " ";
-                foreach (S sNext in s.WH.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+                foreach (PL pl in s.WH)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType1(pl.next, hasSetNNans, SQWord);
+                }
             }
             if (s.SQ != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.SQ.words) sentence += wap.word + " ";
-                foreach (S sNext in s.SQ.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+                foreach (PL pl in s.SQ)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType1(pl.next, hasSetNNans, SQWord);
+                }
             }
             if (s.NP != null)
             {
-                foreach (WordAndPOS wap in s.NP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.NP.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+                foreach (PL pl in s.NP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType1(pl.next, hasSetNNans, SQWord);
+                }
             }
             if (s.VP != null)
             {
-                foreach (WordAndPOS wap in s.VP.words)
+                foreach (PL pl in s.VP)
                 {
-                    if (!hasSetNNans && (wap.pos == "VBG" || wap.pos == "VBN")) sentence += SQWord + " ";
-                    sentence += wap.word + " ";
+                    foreach (WordAndPOS wap in pl.words)
+                    {
+                        if (!hasSetNNans && (wap.pos == "VBG" || wap.pos == "VBN")) sentence += SQWord + " ";
+                        sentence += wap.word + " ";
+                    }
+                    if (!hasSetNNans) sentence += "NNans ";
+                    hasSetNNans = true;
+                    if (pl.next != null) sentence += transformQuestionTraversalType1(pl.next, hasSetNNans, SQWord);
                 }
-                if (!hasSetNNans) sentence += "NNans ";
-                hasSetNNans = true;
-                foreach (S sNext in s.VP.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
             }
             if (s.PP != null)
             {
-                foreach (WordAndPOS wap in s.PP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.PP.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+                foreach (PL pl in s.PP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType1(pl.next, hasSetNNans, SQWord);
+                }
             }
             if (s.ADJP != null)
             {
-                foreach (WordAndPOS wap in s.ADJP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.ADJP.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+                foreach (PL pl in s.ADJP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType1(pl.next, hasSetNNans, SQWord);
+                }
             }
             if (s.ADVP != null)
             {
-                foreach (WordAndPOS wap in s.ADVP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.ADVP.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+                foreach (PL pl in s.ADVP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType1(pl.next, hasSetNNans, SQWord);
+                }
             }
             if (s.Ss != null)
             {
-                foreach (WordAndPOS wap in s.Ss.words) sentence += wap.word + " ";
-                foreach (S sNext in s.Ss.next) sentence += transformQuestionTraversalType1(sNext, hasSetNNans, SQWord);
+                foreach (PL pl in s.Ss)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType1(pl.next, hasSetNNans, SQWord);
+                }
             }
             return sentence;
         }
@@ -190,44 +329,68 @@ namespace QuestionAnswering
             string sentence = "";
             if (s.WH != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.WH.words) sentence += wap.word + " ";
-                else hasSetNNans = true;
-                foreach (S sNext in s.WH.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+                foreach (PL pl in s.WH)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    else hasSetNNans = true;
+                    if (pl.next != null) sentence += transformQuestionTraversalType2(pl.next, hasSetNNans);
+                }
             }
             if (s.SQ != null)
             {
-                foreach (WordAndPOS wap in s.SQ.words) sentence += wap.word + " ";
-                foreach (S sNext in s.SQ.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+                foreach (PL pl in s.SQ)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType2(pl.next, hasSetNNans);
+                }
             }
             if (s.NP != null)
             {
-                foreach (WordAndPOS wap in s.NP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.NP.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+                foreach (PL pl in s.NP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType2(pl.next, hasSetNNans);
+                }
             }
             if (s.VP != null)
             {
-                foreach (WordAndPOS wap in s.VP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.VP.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+                foreach (PL pl in s.VP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType2(pl.next, hasSetNNans);
+                }
             }
             if (s.PP != null)
             {
-                foreach (WordAndPOS wap in s.PP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.PP.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+                foreach (PL pl in s.PP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType2(pl.next, hasSetNNans);
+                }
             }
             if (s.ADJP != null)
             {
-                foreach (WordAndPOS wap in s.ADJP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.ADJP.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+                foreach (PL pl in s.ADJP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType2(pl.next, hasSetNNans);
+                }
             }
             if (s.ADVP != null)
             {
-                foreach (WordAndPOS wap in s.ADVP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.ADVP.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+                foreach (PL pl in s.ADVP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType2(pl.next, hasSetNNans);
+                }
             }
             if (s.Ss != null)
             {
-                foreach (WordAndPOS wap in s.Ss.words) sentence += wap.word + " ";
-                foreach (S sNext in s.Ss.next) sentence += transformQuestionTraversalType2(sNext, hasSetNNans);
+                foreach (PL pl in s.Ss)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType2(pl.next, hasSetNNans);
+                }
             }
             return sentence;
         }
@@ -238,44 +401,68 @@ namespace QuestionAnswering
             string sentence = "";
             if (s.WH != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.WH.words) sentence += wap.word + " ";
-                foreach (S sNext in s.WH.next) sentence += transformQuestionTraversalType3(sNext, hasSetNNans);
+                foreach (PL pl in s.WH)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType3(pl.next, hasSetNNans);
+                }
             }
             if (s.SQ != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.SQ.words) sentence += wap.word + " ";
-                foreach (S sNext in s.SQ.next) sentence += transformQuestionTraversalType3(sNext, hasSetNNans);
+                foreach (PL pl in s.SQ)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType3(pl.next, hasSetNNans);
+                }
             }
             if (s.NP != null)
             {
                 hasSetNNans = true;
-                foreach (WordAndPOS wap in s.NP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.NP.next) sentence += transformQuestionTraversalType3(sNext, hasSetNNans);
+                foreach (PL pl in s.NP)
+                {
+                    foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType3(pl.next, hasSetNNans);
+                }
             }
             if (s.VP != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.VP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.VP.next) sentence += transformQuestionTraversalType3(sNext, hasSetNNans);
+                foreach (PL pl in s.VP)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType3(pl.next, hasSetNNans);
+                }
             }
             if (s.PP != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.PP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.PP.next) sentence += transformQuestionTraversalType3(sNext, hasSetNNans);
+                foreach (PL pl in s.PP)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType3(pl.next, hasSetNNans);
+                }
             }
             if (s.ADJP != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.ADJP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.ADJP.next) sentence += transformQuestionTraversalType3(sNext, hasSetNNans);
+                foreach (PL pl in s.ADJP)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType3(pl.next, hasSetNNans);
+                }
             }
             if (s.ADVP != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.ADVP.words) sentence += wap.word + " ";
-                foreach (S sNext in s.ADVP.next) sentence += transformQuestionTraversalType3(sNext, hasSetNNans);
+                foreach (PL pl in s.ADVP)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType3(pl.next, hasSetNNans);
+                }
             }
             if (s.Ss != null)
             {
-                if (hasSetNNans) foreach (WordAndPOS wap in s.Ss.words) sentence += wap.word + " ";
-                foreach (S sNext in s.Ss.next) sentence += transformQuestionTraversalType3(sNext, hasSetNNans);
+                foreach (PL pl in s.Ss)
+                {
+                    if (hasSetNNans) foreach (WordAndPOS wap in pl.words) sentence += wap.word + " ";
+                    if (pl.next != null) sentence += transformQuestionTraversalType3(pl.next, hasSetNNans);
+                }
             }
             return sentence;
         }
@@ -285,16 +472,16 @@ namespace QuestionAnswering
             string SQWord = "";
             if (s.WH != null)
             {
-                foreach (S sNext in s.WH.next) SQWord += getSQWordTraversal(sNext);
+                foreach (PL pl in s.WH) if (pl.next != null) SQWord += getSQWordTraversal(pl.next);
             }
             if (s.SQ != null)
             {
-                if (s.SQ.words.Count != 0) SQWord = s.SQ.words[0].word; //找到SQ
-                else foreach (S sNext in s.SQ.next) SQWord += getSQWordTraversal(sNext);
+                if (s.SQ[0].words.Count != 0) SQWord = s.SQ[0].words[0].word; //找到SQ
+                else foreach (PL pl in s.SQ) if (pl.next != null) SQWord += getSQWordTraversal(pl.next);
             }
             if (s.Ss != null)
             {
-                foreach (S sNext in s.Ss.next) SQWord += getSQWordTraversal(sNext);
+                foreach (PL pl in s.Ss) if (pl.next != null) SQWord += getSQWordTraversal(pl.next);
             }
             return SQWord;
         }

@@ -21,19 +21,10 @@ namespace QuestionAnswering
                 Console.WriteLine("========================================\n");
             }
         }
+
         static void Main(string[] args)
         {
-            //userInputSentence();
-
-            string word = "babylonia";
-            List<string> synonymList, antonymList;
-            Thesaurus.getThesaurus(word, out synonymList, out antonymList);
-
-
-            Console.WriteLine("synonymList: " + synonymList.Count);
-            foreach (string str in synonymList) Console.Write(str + ", ");
-            Console.WriteLine("\n\nantonymList: " + antonymList.Count);
-            foreach (string str in antonymList) Console.Write(str + ", ");
+            userInputSentence();
 
             Console.ReadLine();
         }

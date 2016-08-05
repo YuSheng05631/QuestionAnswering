@@ -8,7 +8,7 @@ using Newtonsoft.Json;  //PM> Install-Package Newtonsoft.Json
 
 namespace QuestionAnswering
 {
-    public class SaveData
+    class SaveData
     {
         //儲存POSTree(List)
         public static void savePOSTree(List<ROOT> rootList, string fileName)
@@ -85,6 +85,33 @@ namespace QuestionAnswering
             {
                 Console.WriteLine("找不到 " + fileName + ".txt 記錄檔。");
             }
+        }
+        //儲存NoThesaurus
+        public static void saveNoThesaurus(string word)
+        {
+            List<string> words = loadNoThesaurus(); //先載入再加進新的一筆資料
+            words.Add(word);
+            using (StreamWriter writer = new StreamWriter("SaveThesaurus\\((NoThesaurus.txt"))
+            {
+                //刷新紀錄檔
+            }
+            using (StreamWriter writer = new StreamWriter("SaveThesaurus\\((NoThesaurus.txt", true))
+            {
+                string saveData = JsonConvert.SerializeObject(words);
+                writer.WriteLine(saveData);
+            }
+        }
+        //載入NoThesaurus
+        public static List<string> loadNoThesaurus()
+        {
+            List<string> words = new List<string>();
+            using (StreamReader reader = new StreamReader("SaveThesaurus\\((NoThesaurus.txt"))
+            {
+                string saveData = reader.ReadLine();
+                if (saveData == null) return words;
+                words = JsonConvert.DeserializeObject<List<string>>(saveData);
+            }
+            return words;
         }
     }
 }

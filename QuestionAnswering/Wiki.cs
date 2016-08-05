@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 
 namespace QuestionAnswering
 {
-    public class Wiki
+    class Wiki
     {
         //搜尋Google取得第一個wiki連結
         private static string googleWiki(string keyword)

@@ -33,11 +33,11 @@ namespace QuestionAnswering
     //ROOT
     public class ROOT
     {
-        public List<S> S;
+        public S S;
         //public bool isQuestion;
         public ROOT()
         {
-            this.S = new List<S>();
+            this.S = new S();
         }
     }
     //Sentence
@@ -80,7 +80,18 @@ namespace QuestionAnswering
             //this.next = new S();
         }
     }
-    public class POSTree
+    //PL及詞性
+    public class PLAndPOS
+    {
+        public PL pl;
+        public string pos;
+        public PLAndPOS(PL pl, string pos)
+        {
+            this.pl = pl;
+            this.pos = pos;
+        }
+    }
+    class POSTree
     {
         //將填空的標籤取代成NNans + 標籤字母
         private static string replaceSlot(string sentence)
@@ -143,6 +154,7 @@ namespace QuestionAnswering
                 if (result.Count == 0) break;
                 LPLinesIndentNote.Add(result);
             }
+            if (LPLinesIndentNote[0].Count > 1) return new List<List<int>>();   //若有兩個ROOT以上
             return LPLinesIndentNote;
         }
 
@@ -211,6 +223,38 @@ namespace QuestionAnswering
             }
             return POSUnitList;
         }
+        //修復POSUnitList中沒有pos的unit
+        private static List<POSUnit> fixPOSUnitListNoPos(List<List<int>> LPLinesIndentNote, List<POSUnit> POSUnitList)
+        {
+            #region e.g.
+            /*
+            (NP (DT The)
+              (ADJP (RB formerly) (VBN monopolized))
+              (NN technology))
+            
+            (NN technology)沒有pos，則將pos設成前一個縮排的pos
+            */
+            #endregion
+            for (int i = 0; i < POSUnitList.Count; i++)
+            {
+                if (POSUnitList[i].pos == "")   //沒有pos
+                {
+                    //找到這一行的縮排數
+                    int indent = 0;
+                    for (int j = 0; j < LPLinesIndentNote.Count; j++)
+                        for (int k = 0; k < LPLinesIndentNote[j].Count; k++)
+                            if (i == LPLinesIndentNote[j][k]) indent = j;
+                    //從前一個縮排的行數中，找到小於這一行且最大的行數
+                    int prevLine = i;
+                    for (int j = 0; j < LPLinesIndentNote[indent - 1].Count; j++)
+                        if (i > LPLinesIndentNote[indent - 1][j]) prevLine = LPLinesIndentNote[indent - 1][j];
+                    //將這一行的pos設成前一個縮排的pos(兩個pos的首字母要一樣)
+                    if (POSUnitList[i].words[0].pos[0] == POSUnitList[prevLine].pos[0])
+                        POSUnitList[i].pos = POSUnitList[prevLine].pos;
+                }
+            }
+            return POSUnitList;
+        }
         //將POSUnitList轉換成Tree的形式(處理next)
         private static POSUnit getPOSUnitTree(List<List<int>> LPLinesIndentNote, List<POSUnit> POSUnitList)
         {
@@ -248,11 +292,7 @@ namespace QuestionAnswering
         private static ROOT getROOT(POSUnit POSUnitTree)
         {
             ROOT root = new ROOT();
-            List<S> SList = new List<S>();
-            //將(ROOT底下的各個(S拿去Traversal，回傳的S組成一個List，成為ROOT.S
-            //一般(ROOT底下只有一個(S，但還是寫成List形式以防例外
-            foreach (POSUnit SUnit in POSUnitTree.next) SList.Add(getROOTTraversal(SUnit));
-            root.S = SList;
+            root.S = getROOTTraversal(POSUnitTree.next[0]); //一般ROOT底下只有一個S
             return root;
         }
         //取得ROOT(Traversal)
@@ -352,16 +392,13 @@ namespace QuestionAnswering
         //印出ROOT(Start)
         public static void printROOT(ROOT root)
         {
-            if (root.S.Count == 0 || root.S[0] == null)
+            if (root.S == null)
             {
                 Console.WriteLine("No S.");
                 return;
             }
-            foreach (S s in root.S)
-            {
-                Console.WriteLine("ROOT-S");
-                printROOTTraversal(s, 0);
-            }
+            Console.WriteLine("ROOT-S");
+            printROOTTraversal(root.S, 0);
         }
         //印出ROOT(Traversal)
         private static void printROOTTraversal(S s, int indent)
@@ -453,6 +490,134 @@ namespace QuestionAnswering
             }
         }
 
+        //取得POSTree的長度(Start)
+        public static int getPOSTreeLength(ROOT root)
+        {
+            return getPOSTreeLengthTraversal(root.S);
+        }
+        //取得POSTree的長度(Traversal)
+        private static int getPOSTreeLengthTraversal(S s)
+        {
+            int length = 0;
+            if (s.Ss != null)
+            {
+                length += s.Ss.Count;
+                foreach (PL pl in s.Ss) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+            }
+            if (s.WH != null)
+            {
+                length += s.WH.Count;
+                foreach (PL pl in s.WH) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+            }
+            if (s.SQ != null)
+            {
+                length += s.SQ.Count;
+                foreach (PL pl in s.SQ) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+            }
+            if (s.NP != null)
+            {
+                length += s.NP.Count;
+                foreach (PL pl in s.NP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+            }
+            if (s.VP != null)
+            {
+                length += s.VP.Count;
+                foreach (PL pl in s.VP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+            }
+            if (s.PP != null)
+            {
+                length += s.PP.Count;
+                foreach (PL pl in s.PP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+            }
+            if (s.ADJP != null)
+            {
+                length += s.ADJP.Count;
+                foreach (PL pl in s.ADJP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+            }
+            if (s.ADVP != null)
+            {
+                length += s.ADVP.Count;
+                foreach (PL pl in s.ADVP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+            }
+            return length;
+        }
+
+        //將POSTree轉換成List<PL>(Start)
+        public static List<PLAndPOS> getPLList(ROOT root)
+        {
+            return getPLListTraversal(root.S);
+        }
+        //將POSTree轉換成List<PL>(Traversal)
+        private static List<PLAndPOS> getPLListTraversal(S s)
+        {
+            List<PLAndPOS> PLList = new List<PLAndPOS>();
+            if (s.WH != null)
+            {
+                foreach (PL pl in s.WH)
+                {
+                    PLList.Add(new PLAndPOS(pl, "WH"));
+                    if (pl.next != null) PLList.AddRange(getPLListTraversal(pl.next));
+                }
+            }
+            if (s.SQ != null)
+            {
+                foreach (PL pl in s.SQ)
+                {
+                    PLList.Add(new PLAndPOS(pl, "SQ"));
+                    if (pl.next != null) PLList.AddRange(getPLListTraversal(pl.next));
+                }
+            }
+            if (s.NP != null)
+            {
+                foreach (PL pl in s.NP)
+                {
+                    PLList.Add(new PLAndPOS(pl, "NP"));
+                    if (pl.next != null) PLList.AddRange(getPLListTraversal(pl.next));
+                }
+            }
+            if (s.VP != null)
+            {
+                foreach (PL pl in s.VP)
+                {
+                    PLList.Add(new PLAndPOS(pl, "VP"));
+                    if (pl.next != null) PLList.AddRange(getPLListTraversal(pl.next));
+                }
+            }
+            if (s.PP != null)
+            {
+                foreach (PL pl in s.PP)
+                {
+                    PLList.Add(new PLAndPOS(pl, "PP"));
+                    if (pl.next != null) PLList.AddRange(getPLListTraversal(pl.next));
+                }
+            }
+            if (s.ADJP != null)
+            {
+                foreach (PL pl in s.ADJP)
+                {
+                    PLList.Add(new PLAndPOS(pl, "ADJP"));
+                    if (pl.next != null) PLList.AddRange(getPLListTraversal(pl.next));
+                }
+            }
+            if (s.ADVP != null)
+            {
+                foreach (PL pl in s.ADVP)
+                {
+                    PLList.Add(new PLAndPOS(pl, "ADVP"));
+                    if (pl.next != null) PLList.AddRange(getPLListTraversal(pl.next));
+                }
+            }
+            if (s.Ss != null)
+            {
+                foreach (PL pl in s.Ss)
+                {
+                    PLList.Add(new PLAndPOS(pl, "Ss"));
+                    if (pl.next != null) PLList.AddRange(getPLListTraversal(pl.next));
+                }
+            }
+            return PLList;
+        }
+
         //main
         public static ROOT getPOSTree(string sentence)
         {
@@ -467,9 +632,17 @@ namespace QuestionAnswering
 
             //取得LPLines各縮排數有哪些行
             List<List<int>> LPLinesIndentNote = getLPLinesIndentNote(LPLinesIndent);
+            if (LPLinesIndentNote.Count == 0)
+            {
+                Console.WriteLine("有兩個ROOT。");
+                return new ROOT();
+            }
 
             //將每一行的LPLines轉成POSUnit(不處理next)
             List<POSUnit> POSUnitList = getPOSUnitList(LPLines);
+
+            //修復POSUnitList中沒有pos的unit
+            POSUnitList = fixPOSUnitListNoPos(LPLinesIndentNote, POSUnitList);
 
             //將POSUnitList轉換成Tree的形式(處理next)
             POSUnit POSUnitTree = getPOSUnitTree(LPLinesIndentNote, POSUnitList);

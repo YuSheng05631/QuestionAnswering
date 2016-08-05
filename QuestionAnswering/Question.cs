@@ -11,9 +11,7 @@ namespace QuestionAnswering
         //是否為問句(Start)
         public static bool isQuestion(ROOT root)
         {
-            bool isQ = false;
-            foreach (S s in root.S) isQ = isQ || isQuestionTraversal(s);
-            return isQ;
+            return isQuestionTraversal(root.S);
         }
         //是否為問句(Traversal)
         private static bool isQuestionTraversal(S s)
@@ -37,27 +35,9 @@ namespace QuestionAnswering
             //3. 命令型問句(第一個S底下有VP無NP)。 e.g. Write in the name of your cat.
             //4. 填空型問句(已在getPOSTree轉換標籤)。 e.g. Hammurabi belonged to the dynasty of the (B) people.
             int type = 0;
-            foreach (S s in root.S) //檢查type 4
-            {
-                type = getQuestionTypeTraversal4(s);
-                if (type != 0) break;
-            }
-            if (type == 0)  //檢查type 1 or 2
-            {
-                foreach (S s in root.S)
-                {
-                    type = getQuestionTypeTraversal1or2(s);
-                    if (type != 0) break;
-                }
-            }
-            if (type == 0)  //檢查type 3
-            {
-                foreach (S s in root.S)
-                {
-                    type = getQuestionTypeTraversal3(s);
-                    if (type != 0) break;
-                }
-            }
+            type = getQuestionTypeTraversal4(root.S);                   //檢查type 4
+            if (type == 0) type = getQuestionTypeTraversal1or2(root.S); //檢查type 1 or 2
+            if (type == 0) type = getQuestionTypeTraversal3(root.S);    //檢查type 3
             return type;
         }
         //取得問句類型1 or 2(Traversal)
@@ -225,21 +205,16 @@ namespace QuestionAnswering
             if (type == 0 || type == 4) return root; //0. 非問句 or 4. 填空型問句(已在getPOSTree轉換標籤)
             else if (type == 1)         //1. SQ連接NP+VP。 e.g. What do you mean?
             {
-                foreach (S s in root.S)
-                {
-                    string SQWord = getSQWordTraversal(s);
-                    sentence += transformQuestionTraversalType1(s, false, SQWord);
-                }
+                string SQWord = getSQWordTraversal(root.S);
+                sentence = transformQuestionTraversalType1(root.S, false, SQWord);
             }
             else if (type == 2)         //2. SQ連接NP/VP。 e.g. What is your name?
             {
-                sentence = "NNans ";
-                foreach (S s in root.S) sentence += transformQuestionTraversalType2(s, false);
+                sentence = "NNans " + transformQuestionTraversalType2(root.S, false);
             }
             else if (type == 3)         //3. 命令型問句(第一個S底下有VP無NP)。 e.g. Write in the name of your cat.
             {
-                sentence = "NNans is ";
-                foreach (S s in root.S) sentence += transformQuestionTraversalType3(s, false);
+                sentence = "NNans is " + transformQuestionTraversalType3(root.S, false);
             }
             rootNew = POSTree.getPOSTree(sentence);
             return rootNew;

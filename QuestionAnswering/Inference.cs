@@ -6,21 +6,16 @@ using System.Threading.Tasks;
 
 namespace QuestionAnswering
 {
-    public class Inference
+    class Inference
     {
         private static string NNans = "";
         
         //兩個root是否相同(Start)
         public static bool isSamePOSTree(ROOT root1, ROOT root2)
         {
-            bool isSame = true;
-            if (root1.S.Count != root2.S.Count) return false;   //S數量不同
-            for (int i = 0; i < root1.S.Count; i++)
-            {
-                isSame = isSame && isSamePOSTreeTraversal(root1.S[i], root2.S[i]);
-            }
-
-            return isSame;
+            if (root1.S == null && root2.S == null) return true;    //兩個都是null
+            if (root1.S == null || root2.S == null) return true;    //只有一個是null
+            return isSamePOSTreeTraversal(root1.S, root2.S);
         }
         //兩個root是否相同(Traversal)
         private static bool isSamePOSTreeTraversal(S s1, S s2)

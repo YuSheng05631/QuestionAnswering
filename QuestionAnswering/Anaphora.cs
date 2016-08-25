@@ -316,6 +316,150 @@ namespace QuestionAnswering
             return nouns.Trim();
         }
 
+        //從POSTree抓取的詞性順序。e.g. NP + VP + NP
+        private static List<string> retrievePLPOSList = new List<string>(); //phrase level
+        private static List<string> retrieveWLPOSList = new List<string>(); //word level
+        //設置retrievePLPOSList、retrieveWLPOSList(輸入type)
+        private static void setRetrievePOSList(int type)
+        {
+            retrievePLPOSList = new List<string>();
+            retrieveWLPOSList = new List<string>();
+            switch (type)
+            {
+                case 0: //It + ... + that + ...
+                    retrievePLPOSList = splitStringByComma("NP,S");
+                    retrieveWLPOSList = splitStringByComma("PRP,IN");
+                    break;
+                case 1: //It + ... + to + ...
+                    retrievePLPOSList = splitStringByComma("NP,VP");
+                    retrieveWLPOSList = splitStringByComma("PRP,TO");
+                    break;
+                case 2: //It + ... + V-ing + ...
+                    retrievePLPOSList = splitStringByComma("NP,VP");
+                    retrieveWLPOSList = splitStringByComma("PRP,VBG");
+                    break;
+                default:
+                    break;
+            }
+        }
+        //設置retrievePOSList(輸入字串)
+        private static List<string> splitStringByComma(string type)
+        {
+            List<string> tempList = new List<string>();
+            string[] cut = type.Split(',');
+            foreach (string c in cut) tempList.Add(c);
+            cut.ToArray();
+            return tempList;
+        }
+        //檢查是否為虛主詞(Start)
+        public static bool isFalseSubject(S s)
+        {
+            for (int i = 0; i <= 2; i++)
+            {
+                setRetrievePOSList(i);
+                if (isFalseSubjectTraversal(s, 0)) return true; //檢查是否為虛主詞(Traversal)
+            }
+            return false;
+        }
+        //檢查是否為虛主詞(Traversal)
+        //rIndex: 接下來要抓retrievePOSList中第幾個索引的詞性
+        public static bool isFalseSubjectTraversal(S s, int rIndex)
+        {
+            bool isFalseSubject = false;
+            if (s.NP != null)
+            {
+                if (retrievePLPOSList[rIndex] == "NP")    //符合PL詞性
+                {
+                    bool hasWLPOS = false;
+                    foreach (PL pl in s.NP)
+                    {
+                        if (pl.words.Count == 0 && retrieveWLPOSList[rIndex] == "") hasWLPOS = true;    //e.g. (S
+                        foreach (WordAndPOS wap in pl.words)
+                        {
+                            if (retrieveWLPOSList[rIndex] == "") hasWLPOS = true;
+                            if (retrieveWLPOSList[rIndex] == wap.pos) hasWLPOS = true;  //(只要其中一個)符合WL詞性
+                            if (hasWLPOS) break;
+                        }
+                        if (hasWLPOS) break;
+                    }
+                    if (hasWLPOS) rIndex += 1;  //符合WL詞性，準備檢查下一個詞性
+                    if (retrievePLPOSList.Count == rIndex) return true; //已經全數符合
+                }
+                foreach (PL pl in s.NP)
+                {
+                    if (pl.next != null)
+                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
+                }
+            }
+            if (s.VP != null)
+            {
+                if (retrievePLPOSList[rIndex] == "VP")    //符合PL詞性
+                {
+                    bool hasWLPOS = false;
+                    foreach (PL pl in s.VP)
+                    {
+                        if (pl.words.Count == 0 && retrieveWLPOSList[rIndex] == "") hasWLPOS = true;    //e.g. (S
+                        foreach (WordAndPOS wap in pl.words)
+                        {
+                            if (retrieveWLPOSList[rIndex] == "") hasWLPOS = true;
+                            if (retrieveWLPOSList[rIndex] == wap.pos) hasWLPOS = true;  //(只要其中一個)符合WL詞性
+                            if (hasWLPOS) break;
+                        }
+                        if (hasWLPOS) break;
+                    }
+                    if (hasWLPOS) rIndex += 1;  //符合WL詞性，準備檢查下一個詞性
+                    if (retrievePLPOSList.Count == rIndex) return true; //已經全數符合
+                }
+                foreach (PL pl in s.VP)
+                {
+                    if (pl.next != null)
+                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
+                }
+            }
+            if (s.ADJP != null)
+            {
+                foreach (PL pl in s.ADJP)
+                {
+                    if (pl.next != null)
+                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
+                }
+            }
+            if (s.ADVP != null)
+            {
+                foreach (PL pl in s.ADVP)
+                {
+                    if (pl.next != null)
+                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
+                }
+            }
+            if (s.Ss != null)
+            {
+                if (retrievePLPOSList[rIndex].IndexOf("S") == 0)    //符合PL詞性
+                {
+                    bool hasWLPOS = false;
+                    foreach (PL pl in s.Ss)
+                    {
+                        if (pl.words.Count == 0 && retrieveWLPOSList[rIndex] == "") hasWLPOS = true;    //e.g. (S
+                        foreach (WordAndPOS wap in pl.words)
+                        {
+                            if (retrieveWLPOSList[rIndex] == "") hasWLPOS = true;
+                            if (retrieveWLPOSList[rIndex] == wap.pos) hasWLPOS = true;  //(只要其中一個)符合WL詞性
+                            if (hasWLPOS) break;
+                        }
+                        if (hasWLPOS) break;
+                    }
+                    if (hasWLPOS) rIndex += 1;  //符合WL詞性，準備檢查下一個詞性
+                    if (retrievePLPOSList.Count == rIndex) return true; //已經全數符合
+                }
+                foreach (PL pl in s.Ss)
+                {
+                    if (pl.next != null)
+                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
+                }
+            }
+            return isFalseSubject;
+        }
+
         //轉換Anaphora
         //rootList: 文章中每個句子的root
         public static void transformAnaphora(List<ROOT> rootList)
@@ -346,12 +490,19 @@ namespace QuestionAnswering
                     {
                         if (pl.words[i].pos.IndexOf("PRP") == 0)    //代名詞
                         {
-                            AnaphoraInfo ai = getPRPAnaphoraInfo(pl.words[i].word);                     //取得代名詞的AnaphoraInfo
-                            PL AntecedentPL = findAntecedent(rootList, rootListIndex, ai, s.indent);    //找出Antecedent(Start)
-                            if (AntecedentPL != null)   //找到Antecedent
+                            if (pl.words[i].word.ToLower() == "it" && isFalseSubject(s))    //檢查是否為虛主詞
                             {
-                                pl.words = transformAnaphoraWAPList(pl.words, AntecedentPL.words);      //將Anaphora取代成Antecedent
-                                break;
+                                Console.WriteLine("擁有虛主詞。");
+                            }
+                            else    //不是虛主詞，轉換Anaphora
+                            {
+                                AnaphoraInfo ai = getPRPAnaphoraInfo(pl.words[i].word);                     //取得代名詞的AnaphoraInfo
+                                PL AntecedentPL = findAntecedent(rootList, rootListIndex, ai, s);           //找出Antecedent(Start)
+                                if (AntecedentPL != null)   //找到Antecedent
+                                {
+                                    pl.words = transformAnaphoraWAPList(pl.words, AntecedentPL.words);      //將Anaphora取代成Antecedent
+                                    break;
+                                }
                             }
                         }
                     }
@@ -383,15 +534,14 @@ namespace QuestionAnswering
         //rootList: 文章中每個句子的root
         //rootListIndex: 目前處理到第幾個句子
         //ai: 要被取代的Anaphora資訊
-        //indent: 受理的縮排最大值，若等於-1則沒有最大值
-        private static PL findAntecedent(List<ROOT> rootList, int rootListIndex, AnaphoraInfo ai, int indent)
+        //anaphoraS: 要被取代的Anaphora所位於的S，用於確認Antecedent在Anaphora之前
+        private static PL findAntecedent(List<ROOT> rootList, int rootListIndex, AnaphoraInfo ai, S anaphoraS)
         {
             PL AntecedentPL = null;
             //向前找
             for (int i = rootListIndex; i >= 0; i--)
             {
-                if (i != rootListIndex) indent = -1;            //第一句找indent縮排以內的名詞，其他句則無受限
-                AntecedentPL = findAntecedentTraversal(ai, rootList[i].S, indent);
+                AntecedentPL = findAntecedentTraversal(ai, rootList[i].S, anaphoraS);
                 if (AntecedentPL != null) return AntecedentPL;  //找到AntecedentPL
             }
             //向後找
@@ -404,10 +554,10 @@ namespace QuestionAnswering
         }
         //找出Antecedent(Traversal)
         //ai: 要被取代的Anaphora資訊
-        //indent: 受理的縮排最大值，若等於-1則沒有最大值
-        private static PL findAntecedentTraversal(AnaphoraInfo ai, S s, int indent)
+        //anaphoraS: 要被取代的Anaphora所在的S，用於確認Antecedent在Anaphora之前
+        private static PL findAntecedentTraversal(AnaphoraInfo ai, S s, S anaphoraS)
         {
-            if (indent != -1 && indent < s.indent) return null;
+            if (s == anaphoraS) return null;    //已經檢查到Anaphora所在的S
             PL AntecedentPL = null;
             if (s.WH != null)
             {
@@ -415,7 +565,7 @@ namespace QuestionAnswering
                 {
                     if (pl.next != null && AntecedentPL == null)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, indent);
+                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
                         if (AntecedentPL != null) return AntecedentPL;
                     }
                 }
@@ -426,7 +576,7 @@ namespace QuestionAnswering
                 {
                     if (pl.next != null && AntecedentPL == null)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, indent);
+                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
                         if (AntecedentPL != null) return AntecedentPL;
                     }
                 }
@@ -440,7 +590,7 @@ namespace QuestionAnswering
                         AntecedentPL =  pl;
                         return AntecedentPL;
                     }
-                    if (pl.next != null) AntecedentPL = findAntecedentTraversal(ai, pl.next, indent);
+                    if (pl.next != null) AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
                 }
             }
             if (s.VP != null)
@@ -449,7 +599,7 @@ namespace QuestionAnswering
                 {
                     if (pl.next != null && AntecedentPL == null)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, indent);
+                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
                         if (AntecedentPL != null) return AntecedentPL;
                     }
                 }
@@ -460,7 +610,7 @@ namespace QuestionAnswering
                 {
                     if (pl.next != null && AntecedentPL == null)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, indent);
+                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
                         if (AntecedentPL != null) return AntecedentPL;
                     }
                 }
@@ -471,7 +621,7 @@ namespace QuestionAnswering
                 {
                     if (pl.next != null && AntecedentPL == null)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, indent);
+                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
                         if (AntecedentPL != null) return AntecedentPL;
                     }
                 }
@@ -482,7 +632,7 @@ namespace QuestionAnswering
                 {
                     if (pl.next != null && AntecedentPL == null)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, indent);
+                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
                         if (AntecedentPL != null) return AntecedentPL;
                     }
                 }
@@ -493,7 +643,7 @@ namespace QuestionAnswering
                 {
                     if (pl.next != null && AntecedentPL == null)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, indent);
+                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
                         if (AntecedentPL != null) return AntecedentPL;
                     }
                 }

@@ -11,12 +11,14 @@ namespace QuestionAnswering
     public class AnaphoraInfo
     {
         public string word;
+        public string pos;
         public int number;  //0: unknown, 1: singular, 2: plural
         public int gender;  //0: unknown, 1: male, 2: female, 3: both
         public int human;   //0: unknown, 1: true, 2: false
         public AnaphoraInfo(string word)
         {
             this.word = word;
+            this.pos = "";
             this.number = 0;
             this.gender = 0;
             this.human = 0;
@@ -29,6 +31,8 @@ namespace QuestionAnswering
             "he", "him", "his", "she", "her", "it", "its", "we", "us", "our", "they", "them", "their", 
             "mine", "yours", "hers", "ours", "theirs", "myself", "ourselves", "yourself", "yourselves", 
             "himself", "herself", "itself", "themselves"};
+
+        //babynames.net
 
         //藉由babynames.net取得姓名資訊
         private static int getNameInfo(string name)
@@ -97,6 +101,8 @@ namespace QuestionAnswering
             }
             return 0;
         }
+
+        //dictionary.com
 
         //藉由dictionary.com取得名詞資訊
         private static AnaphoraInfo getNounInfo(string noun)
@@ -182,10 +188,13 @@ namespace QuestionAnswering
             return 2;
         }
 
+        //get AnaphoraInfo
+
         //取得代名詞的AnaphoraInfo
         private static AnaphoraInfo getPRPAnaphoraInfo(string PRP)
         {
             AnaphoraInfo ai = new AnaphoraInfo(PRP);
+            ai.pos = "PRP";
             PRP = PRP.ToLower();
             if (PRP == "i" || PRP == "me" || PRP == "my" || PRP == "mine" || PRP == "myself" || PRP == "yourself")
             {
@@ -203,13 +212,13 @@ namespace QuestionAnswering
             {
                 ai.number = 1;  //singular
                 ai.gender = 1;  //male
-                ai.human = 0;   //unknown
+                ai.human = 1;   //true
             }
             else if (PRP == "she" || PRP == "her" || PRP == "hers" || PRP == "herself")
             {
                 ai.number = 1;  //singular
                 ai.gender = 2;  //female
-                ai.human = 0;   //unknown
+                ai.human = 1;   //true
             }
             else if (PRP == "it" || PRP == "its" || PRP == "itself")
             {
@@ -233,26 +242,64 @@ namespace QuestionAnswering
             return ai;
         }
         //取得專有名詞的AnaphoraInfo
-        private static AnaphoraInfo getNNPAnaphoraInfo(string NNP)
+        public static AnaphoraInfo getNNPAnaphoraInfo(string NNP)
         {
-            AnaphoraInfo ai = new AnaphoraInfo(NNP);
-            int gender = getNameInfo(NNP);  //藉由babynames.net取得姓名資訊
-            ai.gender = gender;
-            if (gender == 0 && NNP[NNP.Length - 1] == 's') ai.number = 2;   //plural
-            else ai.number = 1;             //singular
-            if (gender == 0) ai.human = 2;  //false
-            else ai.human = 1;              //true
+            AnaphoraInfo ai = SaveData.loadAnaphoraInfo(NNP);       //載入AnaphoraInfo
+            if (ai != null) return ai;
+
+            string wikiTitle;
+            ai = new AnaphoraInfo(NNP);
+            Infobox infobox = Wiki.getInfobox(NNP, out wikiTitle);  //取得wiki的Infobox
+            int nameGender = getNameInfo(NNP);                      //藉由babynames.net取得姓名資訊
+
+            ai.pos = "NNP";
+            ai.gender = nameGender;
+            if (infobox != null && infobox.isHuman())
+            {
+                ai.human = 1;       //true
+                if (infobox.isSingular() || wikiTitle.IndexOf(NNP) != -1) ai.number = 1;    //singular
+                else ai.number = 2; //plural
+            }
+            else
+            {
+                if (wikiTitle.IndexOf(NNP) != -1)   //e.g. Tigris可以找到wiki頁面，代表是單數
+                {
+                    ai.number = 1;  //singular
+                }
+                else if (nameGender == 0 && NNP[NNP.Length - 1] == 's') //找不到名字，結尾又是s
+                {
+                    ai.number = 2;  //plural
+                    //去掉s再重新搜尋
+                    NNP = NNP.Substring(0, NNP.Length - 1);
+                    nameGender = getNameInfo(NNP);  //藉由babynames.net取得姓名資訊
+                    if (nameGender != 0)
+                    {
+                        ai.gender = nameGender;
+                        ai.human = 1;   //true
+                    }
+                }
+                else ai.number = 1; //singular
+                if (nameGender == 0) ai.human = 2;  //false
+                else ai.human = 1;  //true
+            }
+            SaveData.saveAnaphoraInfo(ai, NNP); //儲存AnaphoraInfo
             return ai;
         }
         //取得普通名詞的AnaphoraInfo
         private static AnaphoraInfo getNPAnaphoraInfo(string NP, bool hasNNS)
         {
-            AnaphoraInfo ai = new AnaphoraInfo(NP);
+            AnaphoraInfo ai = SaveData.loadAnaphoraInfo(NP);    //載入AnaphoraInfo
+            if (ai != null) return ai;
+
+            ai = new AnaphoraInfo(NP);
             AnaphoraInfo aiGH = getNounInfo(NP);    //藉由dictionary.com取得名詞資訊
+            ai.pos = "NP";
             if (hasNNS) ai.number = 2;  //plural
             else ai.number = 1;         //singular
             ai.gender = aiGH.gender;
             ai.human = aiGH.human;
+
+            SaveData.saveAnaphoraInfo(ai, NP); //儲存AnaphoraInfo
             return ai;
         }
         //檢查兩個AnaphoraInfo是否相同
@@ -261,12 +308,13 @@ namespace QuestionAnswering
             if (ai1 == null || ai2 == null) return false;
             if (ai1.word == "" || ai2.word == "") return false;
             if (ai1.number != 0 && ai2.number != 0 && ai1.number != ai2.number) return false;
-            if (ai1.gender != 0 && ai2.gender != 0 && ai1.gender != ai2.gender) return false;
+            if (ai1.gender != 0 && ai2.gender != 0 && ai1.gender != 3 && ai2.gender != 3 && 
+                ai1.gender != ai2.gender) return false;
             if (ai1.human != 0 && ai2.human != 0 && ai1.human != ai2.human) return false;
             return true;
         }
         //印出AnaphoraInfo
-        private static void printAnaphoraInfo(AnaphoraInfo ai)
+        public static void printAnaphoraInfo(AnaphoraInfo ai)
         {
             string number = "", gender = "", human = "";
 
@@ -286,6 +334,8 @@ namespace QuestionAnswering
                 ai.word, number, gender, human);
         }
 
+        //check PL
+
         //檢查PL裡是否有專有名詞
         private static bool hasNNPFromPL(PL pl)
         {
@@ -294,7 +344,7 @@ namespace QuestionAnswering
                     return true;
             return false;
         }
-        //檢查是否有複數名詞
+        //檢查PL裡是否有複數名詞
         private static bool hasNNSFromPL(PL pl)
         {
             for (int i = 0; i < pl.words.Count; i++)
@@ -315,6 +365,8 @@ namespace QuestionAnswering
             }
             return nouns.Trim();
         }
+
+        //False Subject
 
         //從POSTree抓取的詞性順序。e.g. NP + VP + NP
         private static List<string> retrievePLPOSList = new List<string>(); //phrase level
@@ -352,18 +404,21 @@ namespace QuestionAnswering
             return tempList;
         }
         //檢查是否為虛主詞(Start)
-        public static bool isFalseSubject(S s)
+        private static bool isFalseSubject(S s, string word)
         {
-            for (int i = 0; i <= 2; i++)
+            if (word.ToLower() == "it")
             {
-                setRetrievePOSList(i);
-                if (isFalseSubjectTraversal(s, 0)) return true; //檢查是否為虛主詞(Traversal)
+                for (int i = 0; i <= 2; i++)
+                {
+                    setRetrievePOSList(i);
+                    if (isFalseSubjectTraversal(s, 0)) return true; //檢查是否為虛主詞(Traversal)
+                }
             }
             return false;
         }
         //檢查是否為虛主詞(Traversal)
         //rIndex: 接下來要抓retrievePOSList中第幾個索引的詞性
-        public static bool isFalseSubjectTraversal(S s, int rIndex)
+        private static bool isFalseSubjectTraversal(S s, int rIndex)
         {
             bool isFalseSubject = false;
             if (s.NP != null)
@@ -460,6 +515,42 @@ namespace QuestionAnswering
             return isFalseSubject;
         }
 
+        //Reflexive Pronoun
+
+        //檢查是否為強調意義的反身代名詞(更改為只要是反身代名詞就不處理Anaphora)
+        private static bool isReflexivePronoun(S s, string word)
+        {
+            //檢查是否為反身代名詞(利用PRPList)
+            bool isRP = false;
+            for (int i = 23; i <= 30; i++) if (word.ToLower() == PRPList[i]) isRP = true;
+            if (!isRP) return false;
+            return true;
+
+            //尋找反身代名詞位在哪個NP & 哪個word
+            /*int posP = 0, posW = 0;
+            for (int i = 0; i < s.NP.Count; i++)
+                for (int j = 0; j < s.NP[i].words.Count; j++)
+                    if (s.NP[i].words[j].word == word)
+                    {
+                        posP = i;
+                        posW = j;
+                    }*/
+            
+            /*if (s.NP.Count > 1)                 //有其他的NP
+            {
+                //s.NP.RemoveAt(posP);            //移除掉反身代名詞的NP
+                return true;
+            }
+            if (s.NP[0].words.Count > 1)        //有其他的word
+            {
+                //s.NP[0].words.RemoveAt(posW);   //移除掉反身代名詞的word
+                return true;
+            }*/
+            //return false;
+        }
+
+        //Transform Anaphora
+
         //轉換Anaphora
         //rootList: 文章中每個句子的root
         public static void transformAnaphora(List<ROOT> rootList)
@@ -469,7 +560,7 @@ namespace QuestionAnswering
                 findAnaphoraTraversal(rootList, i, rootList[i].S);  //找出Anaphora(Traversal)
             }
         }
-        //找出Anaphora(Traversal)
+        //轉換Anaphora(Traversal)
         //rootList: 文章中每個句子的root
         //rootListIndex: 目前處理到第幾個句子
         private static void findAnaphoraTraversal(List<ROOT> rootList, int rootListIndex, S s)
@@ -488,21 +579,39 @@ namespace QuestionAnswering
                 {
                     for (int i = 0; i < pl.words.Count; i++)
                     {
-                        if (pl.words[i].pos.IndexOf("PRP") == 0)    //代名詞
+                        if (pl.words[i].pos.IndexOf("PRP") == 0)        //代名詞
                         {
-                            if (pl.words[i].word.ToLower() == "it" && isFalseSubject(s))    //檢查是否為虛主詞
+                            if (isFalseSubject(s, pl.words[i].word))    //檢查是否為虛主詞
                             {
-                                Console.WriteLine("擁有虛主詞。");
+                                Console.WriteLine("擁有虛主詞 " + pl.words[i].word + " 。");
                             }
-                            else    //不是虛主詞，轉換Anaphora
+                            else if (isReflexivePronoun(s, pl.words[i].word))   //檢查是否為強調意義的反身代名詞
                             {
-                                AnaphoraInfo ai = getPRPAnaphoraInfo(pl.words[i].word);                     //取得代名詞的AnaphoraInfo
-                                PL AntecedentPL = findAntecedent(rootList, rootListIndex, ai, s);           //找出Antecedent(Start)
-                                if (AntecedentPL != null)   //找到Antecedent
+                                Console.WriteLine("擁有強調意義的反身代名詞 " + pl.words[i].word + " 。");
+                            }
+                            else    //不是虛主詞或反身代名詞，轉換Anaphora
+                            {
+                                AnaphoraInfo ai = getPRPAnaphoraInfo(pl.words[i].word);             //取得代名詞的AnaphoraInfo
+                                PL antecedentPL = findAntecedent(rootList, rootListIndex, ai, pl);  //找出Antecedent(Start)
+                                if (antecedentPL != null)   //找到Antecedent
                                 {
-                                    pl.words = transformAnaphoraWAPList(pl.words, AntecedentPL.words);      //將Anaphora取代成Antecedent
+                                    pl.words = transformPRPAnaphoraWAPList(pl.words, antecedentPL.words);   //將代名詞的Anaphora取代成Antecedent
                                     break;
                                 }
+                            }
+                        }
+                        else if (i == 0 && /*pl.words[i].pos == "DT" && 
+                            pl.words[i].word.ToLower().IndexOf("th") == 0 &&*/ !hasNNPFromPL(pl)) //開頭是冠詞the、that等的普通名詞
+                        {
+                            bool hasNNS = hasNNSFromPL(pl);     //檢查是否有複數名詞
+                            string nouns = getNounsFromPL(pl);  //將PL裡的名詞擷取出來
+                            if (nouns == "") continue;
+                            AnaphoraInfo ai = getNPAnaphoraInfo(nouns, hasNNS);                 //取得普通名詞的AnaphoraInfo
+                            PL antecedentPL = findAntecedent(rootList, rootListIndex, ai, pl);  //找出普通名詞的Antecedent(Start)
+                            if (antecedentPL != null)   //找到Antecedent
+                            {
+                                pl.words = transformNPAnaphoraWAPList(pl.words, antecedentPL.words);    //將普通名詞的Anaphora取代成Antecedent
+                                break;
                             }
                         }
                     }
@@ -530,43 +639,44 @@ namespace QuestionAnswering
                     if (pl.next != null)
                         findAnaphoraTraversal(rootList, rootListIndex, pl.next);
         }
+
+        //Find Antecedent
+
         //找出Antecedent(Start)
         //rootList: 文章中每個句子的root
         //rootListIndex: 目前處理到第幾個句子
         //ai: 要被取代的Anaphora資訊
-        //anaphoraS: 要被取代的Anaphora所位於的S，用於確認Antecedent在Anaphora之前
-        private static PL findAntecedent(List<ROOT> rootList, int rootListIndex, AnaphoraInfo ai, S anaphoraS)
+        //anaphoraPL: 要被取代的Anaphora所位於的PL，用於確認Antecedent在Anaphora之前
+        private static PL findAntecedent(List<ROOT> rootList, int rootListIndex, AnaphoraInfo ai, PL anaphoraPL)
         {
-            PL AntecedentPL = null;
+            PL antecedentPL = null;
+            int ct = 0;
             //向前找
             for (int i = rootListIndex; i >= 0; i--)
             {
-                AntecedentPL = findAntecedentTraversal(ai, rootList[i].S, anaphoraS);
-                if (AntecedentPL != null) return AntecedentPL;  //找到AntecedentPL
+                ct += 1;
+                if (ct > 3) break;  //範圍至前三句
+                bool stop = false;
+                antecedentPL = findAntecedentTraversal(ai, rootList[i].S, anaphoraPL, out stop);
+                if (antecedentPL != null) return antecedentPL;  //找到antecedentPL
             }
-            //向後找
-            /*for (int i = rootListIndex + 1; i < rootList.Count; i++)
-            {
-                AntecedentPL = findAntecedentTraversal(ai, rootList[i].S);
-                if (AntecedentPL != null) return AntecedentPL;  //找到AntecedentPL
-            }*/
-            return AntecedentPL;
+            return antecedentPL;
         }
         //找出Antecedent(Traversal)
         //ai: 要被取代的Anaphora資訊
-        //anaphoraS: 要被取代的Anaphora所在的S，用於確認Antecedent在Anaphora之前
-        private static PL findAntecedentTraversal(AnaphoraInfo ai, S s, S anaphoraS)
+        //anaphoraPL: 要被取代的Anaphora所在的PL，用於確認Antecedent在Anaphora之前
+        private static PL findAntecedentTraversal(AnaphoraInfo ai, S s, PL anaphoraPL, out bool stop)
         {
-            if (s == anaphoraS) return null;    //已經檢查到Anaphora所在的S
-            PL AntecedentPL = null;
+            stop = false;
+            PL antecedentPL = null;
             if (s.WH != null)
             {
                 foreach (PL pl in s.WH)
                 {
-                    if (pl.next != null && AntecedentPL == null)
+                    if (pl.next != null && antecedentPL == null && !stop)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
-                        if (AntecedentPL != null) return AntecedentPL;
+                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
+                        if (antecedentPL != null) return antecedentPL;
                     }
                 }
             }
@@ -574,10 +684,10 @@ namespace QuestionAnswering
             {
                 foreach (PL pl in s.SQ)
                 {
-                    if (pl.next != null && AntecedentPL == null)
+                    if (pl.next != null && antecedentPL == null && !stop)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
-                        if (AntecedentPL != null) return AntecedentPL;
+                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
+                        if (antecedentPL != null) return antecedentPL;
                     }
                 }
             }
@@ -585,22 +695,24 @@ namespace QuestionAnswering
             {
                 foreach (PL pl in s.NP)
                 {
-                    if (AntecedentPL == null && evaluateAntecedent(ai, pl)) //評估Antecedent
+                    if (pl == anaphoraPL) stop = true;  //已經檢查到Anaphora所在的PL
+                    else stop = false;
+                    if (antecedentPL == null && !stop && pl.words.Count != 0 && evaluateAntecedent(ai, pl)) //評估Antecedent
                     {
-                        AntecedentPL =  pl;
-                        return AntecedentPL;
+                        antecedentPL = pl;
+                        return antecedentPL;
                     }
-                    if (pl.next != null) AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
+                    if (pl.next != null) antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
                 }
             }
             if (s.VP != null)
             {
                 foreach (PL pl in s.VP)
                 {
-                    if (pl.next != null && AntecedentPL == null)
+                    if (pl.next != null && antecedentPL == null && !stop)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
-                        if (AntecedentPL != null) return AntecedentPL;
+                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
+                        if (antecedentPL != null) return antecedentPL;
                     }
                 }
             }
@@ -608,10 +720,10 @@ namespace QuestionAnswering
             {
                 foreach (PL pl in s.PP)
                 {
-                    if (pl.next != null && AntecedentPL == null)
+                    if (pl.next != null && antecedentPL == null && !stop)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
-                        if (AntecedentPL != null) return AntecedentPL;
+                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
+                        if (antecedentPL != null) return antecedentPL;
                     }
                 }
             }
@@ -619,10 +731,10 @@ namespace QuestionAnswering
             {
                 foreach (PL pl in s.ADJP)
                 {
-                    if (pl.next != null && AntecedentPL == null)
+                    if (pl.next != null && antecedentPL == null && !stop)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
-                        if (AntecedentPL != null) return AntecedentPL;
+                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
+                        if (antecedentPL != null) return antecedentPL;
                     }
                 }
             }
@@ -630,10 +742,10 @@ namespace QuestionAnswering
             {
                 foreach (PL pl in s.ADVP)
                 {
-                    if (pl.next != null && AntecedentPL == null)
+                    if (pl.next != null && antecedentPL == null && !stop)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
-                        if (AntecedentPL != null) return AntecedentPL;
+                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
+                        if (antecedentPL != null) return antecedentPL;
                     }
                 }
             }
@@ -641,36 +753,66 @@ namespace QuestionAnswering
             {
                 foreach (PL pl in s.Ss)
                 {
-                    if (pl.next != null && AntecedentPL == null)
+                    if (pl.next != null && antecedentPL == null && !stop)
                     {
-                        AntecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraS);
-                        if (AntecedentPL != null) return AntecedentPL;
+                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
+                        if (antecedentPL != null) return antecedentPL;
                     }
                 }
             }
-            return AntecedentPL;
+            return antecedentPL;
         }
+
+        //Evaluate Antecedent
+
         //評估Antecedent
         //ai: 要被取代的Anaphora資訊
-        //pl: 要被評估的Antecedent
+        //pl: 要被評估的Antecedent PL
         private static bool evaluateAntecedent(AnaphoraInfo ai, PL pl)
         {
             bool hasNNP = hasNNPFromPL(pl);     //檢查PL裡是否有專有名詞
-            bool hasNNS = hasNNSFromPL(pl);     //檢查是否有複數名詞
+            bool hasNNS = hasNNSFromPL(pl);     //檢查PL裡是否有複數名詞
             string nouns = getNounsFromPL(pl);  //將PL裡的名詞擷取出來
-            if (hasNNP)  //是專有名詞
+            if (nouns == "") return false;
+            if (ai.pos == "PRP")    //要被取代的Anaphora是代名詞
             {
-                AnaphoraInfo aiNNP = getNNPAnaphoraInfo(nouns); //取得專有名詞的AnaphoraInfo
-                return isSameAnaphoraInfo(ai, aiNNP);           //檢查兩個AnaphoraInfo是否相同
+                if (hasNNP)  //是專有名詞
+                {
+                    AnaphoraInfo aiNNP = getNNPAnaphoraInfo(nouns); //取得專有名詞的AnaphoraInfo
+                    return isSameAnaphoraInfo(ai, aiNNP);           //檢查兩個AnaphoraInfo是否相同
+                }
+                else        //不是專有名詞
+                {
+                    AnaphoraInfo aiNP = getNPAnaphoraInfo(nouns, hasNNS);   //取得普通名詞的AnaphoraInfo
+                    return isSameAnaphoraInfo(ai, aiNP);                    //檢查兩個AnaphoraInfo是否相同
+                }
             }
-            else        //不是專有名詞
+            else if (ai.pos == "NP")    //要被取代的Anaphora是普通名詞
             {
-                AnaphoraInfo aiNP = getNPAnaphoraInfo(nouns, hasNNS);   //取得普通名詞的AnaphoraInfo
-                return isSameAnaphoraInfo(ai, aiNP);                    //檢查兩個AnaphoraInfo是否相同
+                if (hasNNP)  //是專有名詞
+                {
+                    //除了AnaphoraInfo，還要檢查Anaphora的Infobox和Antecedent是否為同義詞
+                    string wikiTitle;
+                    bool isSyn = false;
+                    Infobox infobox = Wiki.getInfobox(nouns, out wikiTitle);
+                    if (infobox != null)
+                    {
+                        string[] ary = infobox.infobox.Split(' ');
+                        foreach (string str in ary) if (Thesaurus.hasSynonym(str, ai.word)) isSyn = true;
+                    }
+                    //else isSyn = true;
+
+                    AnaphoraInfo aiNNP = getNNPAnaphoraInfo(nouns); //取得專有名詞的AnaphoraInfo
+                    return isSyn && isSameAnaphoraInfo(ai, aiNNP);  //檢查兩個AnaphoraInfo是否相同
+                }
             }
+            return false;
         }
-        //將Anaphora取代成Antecedent
-        private static List<WordAndPOS> transformAnaphoraWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
+
+        //Transform WAPList
+
+        //將代名詞的Anaphora取代成Antecedent
+        private static List<WordAndPOS> transformPRPAnaphoraWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
         {
             List<WordAndPOS> complexWAPList = new List<WordAndPOS>();
             bool hasTransformed = false;
@@ -679,7 +821,8 @@ namespace QuestionAnswering
                 if (AnaphoraWAPList[i].pos == "PRP$" && !hasTransformed)    //所有格
                 {
                     complexWAPList.AddRange(AntecedentWAPList);
-                    complexWAPList.Add(new WordAndPOS("'s", "POS"));
+                    if (!hasQuotationS(AntecedentWAPList))  //判斷List<WordAndPOS>是否有's
+                        complexWAPList.Add(new WordAndPOS("'s", "POS"));
                     hasTransformed = true;
                 }
                 else if (AnaphoraWAPList[i].pos == "PRP" && !hasTransformed)
@@ -692,6 +835,12 @@ namespace QuestionAnswering
             printWAPList(AnaphoraWAPList, AntecedentWAPList);   //印出AnaphoraWAPList和AntecedentWAPList
             return complexWAPList;
         }
+        //將普通名詞的Anaphora取代成Antecedent
+        private static List<WordAndPOS> transformNPAnaphoraWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
+        {
+            printWAPList(AnaphoraWAPList, AntecedentWAPList);   //印出AnaphoraWAPList和AntecedentWAPList
+            return AntecedentWAPList;   //整個都換
+        }
         //印出AnaphoraWAPList和AntecedentWAPList
         private static void printWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
         {
@@ -700,6 +849,12 @@ namespace QuestionAnswering
             Console.Write("轉換為 ");
             foreach (WordAndPOS wap in AntecedentWAPList) Console.Write(wap.word + " ");
             Console.WriteLine("。");
+        }
+        //判斷List<WordAndPOS>是否有's
+        private static bool hasQuotationS(List<WordAndPOS> wapList)
+        {
+            foreach (WordAndPOS wap in wapList) if (wap.word == "'s") return true;
+            return false;
         }
     }
 }

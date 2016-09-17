@@ -123,12 +123,10 @@ namespace QuestionAnswering
         }
 
         //取得句子的詞性標記結果(依行分割)
-        private static string[] getLPLines(string sentence)
+        private static string[] getLPLines(string POSTree)
         {
-            sentence = sentence.Trim();
-            StanfordParserTools.StanfordParserTools sp = new StanfordParserTools.StanfordParserTools();
-            string LPResult = sp.LexicalizedParser(sentence).Trim(new char[] { '\n', '\r' });
-            string[] LPLines = LPResult.Split('\n');
+            POSTree = POSTree.Trim(new char[] { '\n', '\r' });
+            string[] LPLines = POSTree.Split('\n');
             return LPLines;
         }
         //取得LPLines每一行的縮排
@@ -197,6 +195,7 @@ namespace QuestionAnswering
                             //抓word的pos
                             first += 1;
                             last = LPLines[i].IndexOf(" ", first);
+                            if (last == -1) last = LPLines[i].IndexOf(" ˈ", first); //A bug of IndexOf(). e.g. (NP (JJ ˈalbɛɐ̯t) (NN ˈaɪnʃtaɪn))))))\r
                             tempWord.pos = LPLines[i].Substring(first, last - first);
                             //抓word的word
                             first = last + 1;
@@ -316,7 +315,7 @@ namespace QuestionAnswering
 
             //依自己的pos，設置自己的words和next
             S sThis = new S();
-            if (unit.pos == "S" || unit.pos.IndexOf("SBAR") == 0)
+            if (unit.pos == "S" || unit.pos == "SINV" || unit.pos.IndexOf("SBAR") == 0)
             {
                 sThis.Ss.Add(new PL());
                 sThis.Ss[0].words = unit.words;
@@ -498,64 +497,64 @@ namespace QuestionAnswering
             }
         }
 
-        //取得POSTree的長度(Start)
-        public static int getPOSTreeLength(ROOT root)
+        //取得ROOT的長度(Start)
+        public static int getROOTLength(ROOT root)
         {
-            return getPOSTreeLengthTraversal(root.S);
+            return getROOTLengthTraversal(root.S);
         }
-        //取得POSTree的長度(Traversal)
-        private static int getPOSTreeLengthTraversal(S s)
+        //取得ROOT的長度(Traversal)
+        private static int getROOTLengthTraversal(S s)
         {
             int length = 0;
             if (s.Ss != null)
             {
                 length += s.Ss.Count;
-                foreach (PL pl in s.Ss) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+                foreach (PL pl in s.Ss) if (pl.next != null) length += getROOTLengthTraversal(pl.next);
             }
             if (s.WH != null)
             {
                 length += s.WH.Count;
-                foreach (PL pl in s.WH) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+                foreach (PL pl in s.WH) if (pl.next != null) length += getROOTLengthTraversal(pl.next);
             }
             if (s.SQ != null)
             {
                 length += s.SQ.Count;
-                foreach (PL pl in s.SQ) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+                foreach (PL pl in s.SQ) if (pl.next != null) length += getROOTLengthTraversal(pl.next);
             }
             if (s.NP != null)
             {
                 length += s.NP.Count;
-                foreach (PL pl in s.NP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+                foreach (PL pl in s.NP) if (pl.next != null) length += getROOTLengthTraversal(pl.next);
             }
             if (s.VP != null)
             {
                 length += s.VP.Count;
-                foreach (PL pl in s.VP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+                foreach (PL pl in s.VP) if (pl.next != null) length += getROOTLengthTraversal(pl.next);
             }
             if (s.PP != null)
             {
                 length += s.PP.Count;
-                foreach (PL pl in s.PP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+                foreach (PL pl in s.PP) if (pl.next != null) length += getROOTLengthTraversal(pl.next);
             }
             if (s.ADJP != null)
             {
                 length += s.ADJP.Count;
-                foreach (PL pl in s.ADJP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+                foreach (PL pl in s.ADJP) if (pl.next != null) length += getROOTLengthTraversal(pl.next);
             }
             if (s.ADVP != null)
             {
                 length += s.ADVP.Count;
-                foreach (PL pl in s.ADVP) if (pl.next != null) length += getPOSTreeLengthTraversal(pl.next);
+                foreach (PL pl in s.ADVP) if (pl.next != null) length += getROOTLengthTraversal(pl.next);
             }
             return length;
         }
 
-        //將POSTree轉換成List<PL>(Start)
+        //將ROOT轉換成List<PL>(Start)
         public static List<PLAndPOS> getPLList(ROOT root)
         {
             return getPLListTraversal(root.S);
         }
-        //將POSTree轉換成List<PL>(Traversal)
+        //將ROOT轉換成List<PL>(Traversal)
         private static List<PLAndPOS> getPLListTraversal(S s)
         {
             List<PLAndPOS> PLList = new List<PLAndPOS>();
@@ -626,49 +625,64 @@ namespace QuestionAnswering
             return PLList;
         }
 
-        //main
-        public static ROOT getPOSTree(string sentence)
+        //取得rootList(輸入string)
+        //sentence可以包含多個句子
+        public static List<ROOT> getROOTList(string sentence)
         {
             //將填空的標籤取代成NNans
             sentence = replaceSlot(sentence);
 
-            //取得句子的詞性標記結果(依行分割)
-            string[] LPLines = getLPLines(sentence);
+            //取得詞性標記結果
+            StanfordCoreNLP.Parser sc = new StanfordCoreNLP.Parser();
+            StanfordCoreNLP.ResultSet rs = sc.getResultSet(sentence);
 
-            //取得LPLines每一行的縮排
-            List<int> LPLinesIndent = getLPLinesIndent(LPLines);
-
-            //取得LPLines各縮排數有哪些行
-            List<List<int>> LPLinesIndentNote = getLPLinesIndentNote(LPLinesIndent);
-            if (LPLinesIndentNote.Count == 0)
+            List<ROOT> rootList = new List<ROOT>();
+            foreach (string POSTree in rs.POSTreeList)
             {
-                Console.WriteLine("有兩個ROOT。");
-                return new ROOT();
+                //取得句子的詞性標記結果(依行分割)
+                string[] LPLines = getLPLines(POSTree);
+
+                //取得LPLines每一行的縮排
+                List<int> LPLinesIndent = getLPLinesIndent(LPLines);
+
+                //取得LPLines各縮排數有哪些行
+                List<List<int>> LPLinesIndentNote = getLPLinesIndentNote(LPLinesIndent);
+                /*if (LPLinesIndentNote.Count == 0)
+                {
+                    Console.WriteLine("有兩個ROOT。");
+                    return new ROOT();
+                }*/
+
+                //將每一行的LPLines轉成POSUnit(不處理next)
+                List<POSUnit> POSUnitList = getPOSUnitList(LPLines);
+
+                //修復POSUnitList中沒有pos的unit
+                POSUnitList = fixPOSUnitListNoPos(LPLinesIndentNote, POSUnitList);
+
+                //將POSUnitList轉換成Tree的形式(處理next)
+                POSUnit POSUnitTree = getPOSUnitTree(LPLinesIndentNote, POSUnitList);
+
+                //印出POSUnitTree
+                //printPOSUnitTree(POSUnitTree, 0);
+                //Console.WriteLine();
+
+                //取得ROOT(Start)
+                ROOT root = getROOT(POSUnitTree);
+
+                //印出ROOT(Start)
+                //printROOT(root);
+
+                rootList.Add(root);
             }
-
-            //將每一行的LPLines轉成POSUnit(不處理next)
-            List<POSUnit> POSUnitList = getPOSUnitList(LPLines);
-
-            //處理指涉問題
-            //Anaphora
-
-            //修復POSUnitList中沒有pos的unit
-            POSUnitList = fixPOSUnitListNoPos(LPLinesIndentNote, POSUnitList);
-
-            //將POSUnitList轉換成Tree的形式(處理next)
-            POSUnit POSUnitTree = getPOSUnitTree(LPLinesIndentNote, POSUnitList);
-            
-            //印出POSUnitTree
-            //printPOSUnitTree(POSUnitTree, 0);
-            //Console.WriteLine();
-
-            //取得ROOT(Start)
-            ROOT root = getROOT(POSUnitTree);
-
-            //印出ROOT(Start)
-            //printROOT(root);
-
-            return root;
+            return rootList;
+        }
+        //取得rootList(輸入List<string>)
+        public static List<ROOT> getROOTList(List<string> sentenceList)
+        {
+            //將List<string>合併為單一string
+            string s = "";
+            foreach (string sentence in sentenceList) s += sentence + "\n";
+            return getROOTList(s);
         }
     }
 }

@@ -44,7 +44,7 @@ namespace QuestionAnswering
             }
             catch (FileNotFoundException)
             {
-                Console.WriteLine("找不到 " + fileName + ".txt 記錄檔。");
+                //Console.WriteLine("找不到 SavePOSTree\\" + fileName + ".txt 記錄檔。");
             }
             return rootList;
         }
@@ -83,7 +83,7 @@ namespace QuestionAnswering
             }
             catch (FileNotFoundException)
             {
-                Console.WriteLine("找不到 " + fileName + ".txt 記錄檔。");
+                //Console.WriteLine("找不到 SaveThesaurus\\" + fileName + ".txt 記錄檔。");
             }
         }
         //儲存NoThesaurus
@@ -112,6 +112,77 @@ namespace QuestionAnswering
                 words = JsonConvert.DeserializeObject<List<string>>(saveData);
             }
             return words;
+        }
+
+        //儲存AnaphoraInfo
+        public static void saveAnaphoraInfo(AnaphoraInfo ai, string fileName)
+        {
+            using (StreamWriter writer = new StreamWriter("SaveAnaphoraInfo\\" + fileName + ".txt"))
+            {
+                //刷新紀錄檔
+            }
+            using (StreamWriter writer = new StreamWriter("SaveAnaphoraInfo\\" + fileName + ".txt", true))
+            {
+                string saveData = JsonConvert.SerializeObject(ai);
+                writer.WriteLine(saveData);
+            }
+        }
+        //載入AnaphoraInfo
+        public static AnaphoraInfo loadAnaphoraInfo(string fileName)
+        {
+            string saveData = "";
+            AnaphoraInfo ai = null;
+            try
+            {
+                using (StreamReader reader = new StreamReader("SaveAnaphoraInfo\\" + fileName + ".txt"))
+                {
+                    saveData = reader.ReadLine();
+                    ai = JsonConvert.DeserializeObject<AnaphoraInfo>(saveData);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                //Console.WriteLine("找不到 SaveAnaphoraInfo\\" + fileName + ".txt 記錄檔。");
+            }
+            return ai;
+        }
+
+        //儲存Infobox
+        public static void saveInfobox(Infobox infobox, string wikiTitle, string fileName)
+        {
+            using (StreamWriter writer = new StreamWriter("SaveInfobox\\" + fileName + ".txt"))
+            {
+                //刷新紀錄檔
+            }
+            using (StreamWriter writer = new StreamWriter("SaveInfobox\\" + fileName + ".txt", true))
+            {
+                string saveData = JsonConvert.SerializeObject(infobox);
+                writer.WriteLine(saveData);
+                saveData = JsonConvert.SerializeObject(wikiTitle);
+                writer.WriteLine(saveData);
+            }
+        }
+        //載入Infobox
+        public static Infobox loadInfobox(out string wikiTitle, string fileName)
+        {
+            wikiTitle = "";
+            string saveData = "";
+            Infobox infobox = null;
+            try
+            {
+                using (StreamReader reader = new StreamReader("SaveInfobox\\" + fileName + ".txt"))
+                {
+                    saveData = reader.ReadLine();
+                    infobox = JsonConvert.DeserializeObject<Infobox>(saveData);
+                    saveData = reader.ReadLine();
+                    wikiTitle = JsonConvert.DeserializeObject<string>(saveData);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                //Console.WriteLine("找不到 SaveInfobox\\" + fileName + ".txt 記錄檔。");
+            }
+            return infobox;
         }
     }
 }

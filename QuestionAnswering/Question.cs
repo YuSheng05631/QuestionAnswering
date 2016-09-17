@@ -196,8 +196,7 @@ namespace QuestionAnswering
         //將問句轉換成有NNans的陳述句(Start)
         public static ROOT transformQuestion(ROOT root)
         {
-            //讀取整個句子的每個詞，重組一個含有NNans新的句子，再使用POSTree.getPOSTree(sentence);
-            ROOT rootNew = new ROOT();
+            //讀取整個句子的每個詞，重組一個含有NNans新的句子，再使用POSTree.getROOTList(sentence);
             string sentence = "";
             //取得問句類型(Start)
             int type = getQuestionType(root);
@@ -216,8 +215,8 @@ namespace QuestionAnswering
             {
                 sentence = "NNans is " + transformQuestionTraversalType3(root.S, false);
             }
-            rootNew = POSTree.getPOSTree(sentence);
-            return rootNew;
+            List<ROOT> rootList = POSTree.getROOTList(sentence);
+            return rootList[0];
         }
         //將問句轉換成有NNans的陳述句type1(Traversal)
         private static string transformQuestionTraversalType1(S s, bool hasSetNNans, string SQWord)

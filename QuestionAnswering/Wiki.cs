@@ -12,10 +12,11 @@ namespace QuestionAnswering
     //wiki的Infobox
     public class Infobox
     {
-        public string infobox, birthDate, deathDate, parents, father, mother, children;
+        public List<string> infobox;    //若使用getWikiType方法，可能會取得許多詞
+        public string birthDate, deathDate, parents, father, mother, children;
         public Infobox()
         {
-            infobox = "";
+            infobox = new List<string>();
             birthDate = "";
             deathDate = "";
             parents = "";
@@ -26,50 +27,34 @@ namespace QuestionAnswering
         //是否為人
         public bool isHuman()
         {
-            if (infobox == "person" || infobox == "people") return true;
-            if (birthDate != "" || deathDate != "" || parents != "" || 
+            if (infobox.IndexOf("person") != -1 || infobox.IndexOf("people") != -1) return true;
+            if (birthDate != "" || deathDate != "" || parents != "" ||
                 father != "" || mother != "" || children != "") return true;
             return false;
         }
         //是否為單數
         public bool isSingular()
         {
-            if (infobox == "people") return false;
+            if (infobox.IndexOf("people") != -1) return false;
             return true;
         }
     }
     class Wiki
     {
         //取得網頁原始碼
-        public static string getAllWebData(string url)
+        private static string getAllWebData(string url)
         {
             WebClient client = new WebClient();
             string allWebData = "";
-            try
+            using (Stream data = client.OpenRead(url))
             {
-                using (Stream data = client.OpenRead(url))
+                using (StreamReader reader = new StreamReader(data, Encoding.GetEncoding("UTF-8")))
                 {
-                    using (StreamReader reader = new StreamReader(data, Encoding.GetEncoding("UTF-8")))
-                    {
-                        allWebData = reader.ReadToEnd();
-                    }
+                    allWebData = reader.ReadToEnd();
                 }
-            }
-            catch
-            {
-
             }
             return allWebData;
         }
-        //(無使用)檢查wiki頁面是否存在
-        private static bool existPage(string url, string keyword)
-        {
-            string allWebData = getAllWebData(url);
-            if (allWebData.IndexOf("title=\"Category: Disambiguation pages") != -1) return false;
-            if (allWebData.IndexOf(keyword + "</a>\" does not exist.") != -1) return false;
-            return true;
-        }
-
         //搜尋Google取得wiki連結
         private static string googleWiki(string keyword)
         {
@@ -125,6 +110,40 @@ namespace QuestionAnswering
             if (wikiUrl.Count != 0) return wikiUrl[0];
             else return "";
         }
+        //去掉指定標籤內容
+        private static string removeLabel(string sentence, string left, string right)
+        {
+            int first = 0;
+            int last = 0;
+            while (first != -1 && last != -1)
+            {
+                first = sentence.IndexOf(left);
+                last = sentence.IndexOf(right);
+                if (first != -1 && last != -1)
+                {
+                    if (first < last) //避免因編碼問題而發生錯誤
+                    {
+                        sentence = sentence.Remove(first, last - first + 1);
+                    }
+                    else
+                    {
+                        Console.WriteLine("*因編碼問題，去除" + left + "標籤" + right + "時發生錯誤：" + sentence + "\n");
+                        break;
+                    }
+                }
+            }
+            return sentence;
+        }
+        //(無使用)檢查wiki頁面是否存在
+        private static bool existPage(string url, string keyword)
+        {
+            string allWebData = getAllWebData(url);
+            if (allWebData.IndexOf("title=\"Category: Disambiguation pages") != -1) return false;
+            if (allWebData.IndexOf(keyword + "</a>\" does not exist.") != -1) return false;
+            return true;
+        }
+
+        #region WikiPLArticle
         //取得wiki上<p>標籤的所有句子
         private static List<string> getWikiData(string url)
         {
@@ -132,94 +151,42 @@ namespace QuestionAnswering
             string allWebData = getAllWebData(url); //取得網頁原始碼
 
             //取得所有<p>標籤的句子
-            int first = 0, last = 0, firstL = 0, lastL = 0;
+            int first = 0, last = 0;
             string cut = "";
-            while (first != -1)
+            while (first != -1 && last != -1)
             {
                 first = allWebData.IndexOf("<p>", last);
-                if (first != -1)    //-1代表沒找到該詞彙，便不做處理
+                if (first != -1)
                 {
                     last = allWebData.IndexOf("</p>", first);
                     cut = allWebData.Substring(first + 3, last - first - 3);
-                    //去掉<標籤>
-                    firstL = 0;
-                    lastL = 0;
-                    while (firstL != -1 && lastL != -1)
+                    cut = removeLabel(cut, "<", ">");   //去掉<標籤>
+                    cut = removeLabel(cut, "[", "]");   //去掉<標籤>
+                    cut = removeLabel(cut, "(", ")");   //去掉(標籤)
+                    if (cut.IndexOf(".") == -1)         //根本不是句子
                     {
-                        firstL = cut.IndexOf("<");
-                        lastL = cut.IndexOf(">");
-                        if (firstL != -1 && lastL != -1)
-                        {
-                            if (firstL < lastL) //避免因編碼問題而發生錯誤
-                            {
-                                cut = cut.Remove(firstL, lastL - firstL + 1);
-                            }
-                            else
-                            {
-                                Console.WriteLine("*因編碼問題，去除<標籤>時發生錯誤：" + cut + "\n");
-                                break;
-                            }
-                        }
-                    }
-                    //去掉[標籤]
-                    firstL = 0;
-                    lastL = 0;
-                    while (firstL != -1 && lastL != -1)
-                    {
-                        firstL = cut.IndexOf("[");
-                        lastL = cut.IndexOf("]");
-                        if (firstL != -1 && lastL != -1)
-                        {
-                            if (firstL < lastL) //避免因編碼問題而發生錯誤(ex.2001_A20_C2)
-                            {
-                                cut = cut.Remove(firstL, lastL - firstL + 1);
-                            }
-                            else
-                            {
-                                Console.WriteLine("*因編碼問題，去除[標籤]時發生錯誤：" + cut);
-                                break;
-                            }
-                        }
+                        first = 0;
+                        continue;
                     }
                     //以句點分隔段落
-                    firstL = 0;
-                    lastL = 0;
-                    while (firstL != -1 && lastL != -1)
+                    first = 0;
+                    last = 0;
+                    while (first != -1 && last != -1)
                     {
-                        firstL = 0;
-                        lastL = cut.IndexOf(". ");
-                        if (firstL != -1 && lastL != -1)    //此段落擁有兩個句子以上
+                        first = 0;
+                        last = cut.IndexOf(". ");
+                        if (first != -1 && last != -1)  //此段落擁有兩個句子以上
                         {
-                            wikiData.Add(cut.Substring(firstL, lastL - firstL + 1));   //List加進此段落的第一個句子
-                            cut = cut.Remove(firstL, lastL - firstL + 2);               //cut刪除此段落的第一個句子
+                            wikiData.Add(cut.Substring(first, last - first + 1));   //List加進此段落的第一個句子
+                            cut = cut.Remove(first, last - first + 2);              //cut刪除此段落的第一個句子
                         }
                         else     //已經是單一個句子
                         {
-                            if (cut.Length > 1)     //長度小於1的字串不需要加進List
-                            {
-                                wikiData.Add(cut);
-                            }
+                            if (cut.Length > 1) wikiData.Add(cut);  //長度小於1的字串不需要加進List
                         }
                     }
                 }
             }
-
-            //使用Stemmer讓動名詞轉為原型
-            /*IStemmer stemmer = new EnglishStemmer();
-            List<string> wikiDataTemp = wikiData;
-            wikiData = new List<string>();
-            char[] c = { ' ', ',', '.', '?', '!', '"', '(', ')', '[', ']', ';', ':' };    //拿來斷句的字元
-            foreach (string data in wikiDataTemp)
-            {
-                string sentence = "";
-                string[] sAry = data.Split(c, StringSplitOptions.RemoveEmptyEntries);
-                foreach (string word in sAry)
-                {
-                    sentence += stemmer.Stem(word) + " ";
-                }
-                wikiData.Add(sentence);
-            }*/
-
             return wikiData;
         }
         //取得wiki的標題
@@ -229,47 +196,39 @@ namespace QuestionAnswering
             string cut = url.Substring(first);
             return cut;
         }
-        //取得wiki所有句子的POSTree，並儲存下來
-        private static List<ROOT> getWikiPOSTree(List<string> wikiData, string wikiTitle)
+        //取得wiki所有句子的PLList，並儲存下來
+        private static List<List<PL>> getWikiPLArticle(List<string> wikiData, string wikiTitle)
         {
-            List<ROOT> rootList = POSTree.getROOTList(wikiData);
-            SaveData.savePOSTree(rootList, wikiTitle);
-            return rootList;
+            List<List<PL>> PLARticle = Sentence.getPLArticle(wikiData);
+            SaveData.savePLArticle(PLARticle, wikiTitle);   //儲存PLArticle
+            return PLARticle;
         }
-
-        //main
-        //取得wiki所有句子的POSTree，並儲存下來
-        public static List<ROOT> getWikiPOSTree(string keyword)
+        //取得wiki所有句子的PLList，並儲存下來
+        public static List<List<PL>> getWikiPLArticle(string keyword)
         {
-            //搜尋Google取得wiki連結
-            string url = googleWiki(keyword);
+            string url = googleWiki(keyword);   //搜尋Google取得wiki連結
             if (url == "")      //若搜尋不到wiki，將關鍵字後面加上" wiki"再搜尋一次
             {
                 url = googleWiki(keyword + " wiki");
                 if (url == "")  //還是找不到
                 {
-                    Console.WriteLine("找不到wiki。");
-                    return new List<ROOT>();
+                    Console.WriteLine(keyword + " 找不到wiki。");
+                    return new List<List<PL>>();
                 }
             }
 
-            //取得wiki的標題
-            string wikiTitle = getWikiTitle(url);
-
-            //載入POSTree(List)
-            List<ROOT> rootList = SaveData.loadPOSTree(wikiTitle);
-            if (rootList.Count == 0)    //若沒有記錄檔
+            string wikiTitle = getWikiTitle(url);   //取得wiki的標題
+            List<List<PL>> PLArticle = SaveData.loadPLArticle(wikiTitle);   //載入PLArticle
+            if (PLArticle.Count == 0)   //若沒有記錄檔
             {
-                //取得wiki上<p>標籤的所有句子
-                List<string> wikiData = getWikiData(url);
-
-                //取得wiki所有句子的POSTree，並儲存下來
-                rootList = getWikiPOSTree(wikiData, wikiTitle);
+                List<string> wikiData = getWikiData(url);           //取得wiki上<p>標籤的所有句子
+                PLArticle = getWikiPLArticle(wikiData, wikiTitle);  //取得wiki所有句子的PLList，並儲存下來
             }
-
-            return rootList;
+            return PLArticle;
         }
+        #endregion
         
+        #region Infobox
         //取得wiki的Infobox
         //wikiTitle: 用以判斷單複數。e.g. Tigris可以找到wiki頁面，代表是單數
         public static Infobox getInfobox(string keyword, out string wikiTitle)
@@ -277,6 +236,11 @@ namespace QuestionAnswering
             wikiTitle = "";
 
             //載入Infobox
+            if (isInNoInfobox(keyword))
+            {
+                //Console.WriteLine(word + " 已記錄在 ((NoInfobox.txt 檔裡。");
+                return null;
+            }
             Infobox infobox = SaveData.loadInfobox(out wikiTitle, keyword);
             if (infobox != null) return infobox;
 
@@ -305,15 +269,25 @@ namespace QuestionAnswering
             string infoboxSec = getInfoboxSec(allWebData);
 
             //從infoboxSec取得Infobox資訊
-            infobox = getInfoboxFromSec(infoboxSec);
+            url = "https://en.wikipedia.org/wiki/" + wikiTitle;
+            infobox = getInfoboxFromSec(infoboxSec, url);
 
             //儲存Infobox
             if (infobox != null) SaveData.saveInfobox(infobox, wikiTitle, keyword);
+            else SaveData.saveNoInfobox(keyword);
 
             //印出Infobox
             //printInfobox(infobox);
 
             return infobox;
+        }
+        //是否在NoInfobox檔案裡
+        private static bool isInNoInfobox(string word)
+        {
+            List<string> words = SaveData.loadNoInfobox();
+            int index = words.IndexOf(word);
+            if (index != -1) return true;
+            else return false;
         }
         //取得Infobox區段
         private static string getInfoboxSec(string allWebData)
@@ -333,13 +307,21 @@ namespace QuestionAnswering
             return allWebData.Substring(firstInfobox, last - firstInfobox + 2);
         }
         //從infoboxSec取得Infobox資訊
-        private static Infobox getInfoboxFromSec(string infoboxSec)
+        private static Infobox getInfoboxFromSec(string infoboxSec, string url)
         {
-            if (infoboxSec == null) return null;
-            infoboxSec = infoboxSec.ToLower();
             Infobox infobox = new Infobox();
-
-            infobox.infobox = getInfoboxItem(infoboxSec, "infobox");
+            if (infoboxSec == null) //若頁面裡沒有infobox，用wikiType代替
+            {
+                infobox.infobox = getWikiType(url);
+                if (infobox.infobox == null) return null;   //也沒有wikiType
+                else return infobox;
+            }
+            else
+            {
+                infobox.infobox.AddRange(getWikiType(url)); //infobox + wikiType
+            }
+            infoboxSec = infoboxSec.ToLower();
+            infobox.infobox.Add(getInfoboxItem(infoboxSec, "infobox"));
             infobox.birthDate = getInfoboxItem(infoboxSec, "birth_date");
             infobox.deathDate = getInfoboxItem(infoboxSec, "death_date");
             infobox.parents = getInfoboxItem(infoboxSec, "parents");
@@ -362,9 +344,11 @@ namespace QuestionAnswering
             else return "";
         }
         //印出Infobox
-        private static void printInfobox(Infobox infobox)
+        public static void printInfobox(Infobox infobox)
         {
-            Console.WriteLine("infobox: " + infobox.infobox);
+            Console.Write("infobox: ");
+            foreach (string s in infobox.infobox) Console.Write(s + ", ");
+            Console.WriteLine();
             Console.WriteLine("birthDate: " + infobox.birthDate);
             Console.WriteLine("deathDate: " + infobox.deathDate);
             Console.WriteLine("parents: " + infobox.parents);
@@ -372,13 +356,15 @@ namespace QuestionAnswering
             Console.WriteLine("mother: " + infobox.mother);
             Console.WriteLine("children: " + infobox.children);
         }
+        #endregion
 
+        #region Category
         //取得wiki或Category頁面的所有Category
         private static List<string> getCategoryList(string allWebData)
         {
             List<string> categoryList = new List<string>();
             int first = 0, last = 0, end = 0;
-            first = allWebData.IndexOf("title=\"Help:Category");
+            first = allWebData.IndexOf("title=\"Help:Category\">Categories</a>:");
             if (first != -1)
             {
                 end = allWebData.IndexOf("</ul>", first);   //目錄區塊的結尾位置
@@ -414,7 +400,7 @@ namespace QuestionAnswering
         private static string getMostRelevantCategory(List<string> categoryList, string wikiTitle)
         {
             foreach (string category in categoryList)
-                if(category.IndexOf(wikiTitle) != -1)   //目錄包含了Title
+                if (category.IndexOf(wikiTitle) != -1)   //目錄包含了Title
                     return category;
             if (categoryList.Count != 0) return categoryList[0];    //回傳第一個
             else return "";
@@ -477,5 +463,132 @@ namespace QuestionAnswering
                 }
             }
         }
+
+        //取得所有目錄路線
+        private static List<List<string>> categoryRouteList = new List<List<string>>();
+        private static List<string> categoryVisitedList = new List<string>();
+        //取得categoryRouteList(Start)
+        public static List<List<string>> getCategoryRouteList(string keyword)
+        {
+            categoryRouteList = new List<List<string>>();
+            categoryVisitedList = new List<string>();
+            string url = googleWiki(keyword);       //搜尋Google取得wiki連結
+            string allWebData = getAllWebData(url); //取得網頁原始碼
+
+            //取得wiki或Category頁面的所有Category
+            List<string> categoryList = getCategoryList(allWebData);
+
+            categoryRouteList.Add(new List<string> { "__Head__" });
+            getCategoryRouteListTraversal(0, categoryList);
+            return categoryRouteList;
+        }
+        //取得categoryRouteList(Traversal)
+        private static int getCategoryRouteListTraversal(int nowIndex, List<string> categoryList)
+        {
+            //重複增加現在的路線
+            for (int i = 0; i < categoryList.Count - 1; i++)    //若有2個分支，就重複增加1條路線
+            {
+                //製作要重複的路線(避免指向同個物件)
+                List<string> tempList = new List<string>();
+                for (int j = 0; j < categoryRouteList[nowIndex].Count; j++)
+                    tempList.Add(categoryRouteList[nowIndex][j]);
+                categoryRouteList.Insert(nowIndex + 1, tempList);
+            }
+
+            //將重複的路線填上各個分支目錄
+            for (int i = 0; i < categoryList.Count; i++)
+            {
+                if (categoryVisitedList.IndexOf(categoryList[i]) == -1) //避免迴圈
+                {
+                    categoryRouteList[nowIndex + i].Add(categoryList[i]);
+                    categoryVisitedList.Add(categoryList[i]);
+                }
+                else
+                {
+                    categoryRouteList.RemoveAt(nowIndex + i);   //刪掉重複路線
+                    categoryList.RemoveAt(i);                   //刪掉分支目錄
+                    i--;
+                }
+            }
+
+            //Loop
+            int offset = 0;
+            for (int i = 0; i < categoryList.Count; i++)
+            {
+                //取得下一層的目錄List
+                string url = "https://en.wikipedia.org/wiki/Category:" + categoryList[i];
+                string allWebData = getAllWebData(url);
+                List<string> nextCategoryList = getCategoryList(allWebData);
+
+                if (nextCategoryList.Count > 0)
+                    offset += getCategoryRouteListTraversal(nowIndex + i + offset, nextCategoryList);
+            }
+            offset += categoryList.Count - 1;
+            if (offset < 0) offset = 0;
+            return offset;
+        }
+        #endregion
+
+        #region WikiType(由getInfoboxFromSec呼叫)
+        //判斷是否為Be動詞
+        private static bool isBeV(string word)
+        {
+            List<string> beVList = new List<string>() { "is", "are", "was", "were" };
+            if (beVList.IndexOf(word) != -1) return true;
+            return false;
+        }
+        //取得類型
+        public static List<string> getWikiType(List<PL> PLList)
+        {
+            //取得S. + be + O. 句型的O. (取得Wiki第一句中所描述的該頁面屬於什麼)
+            List<string> wikiTypeList = new List<string>();
+            //抓取的詞性順序。e.g. NP + VP + NP
+            List<string> retrievePOSList = new List<string>() { "NP", "VP", "NP" }; //phrase level
+            int rIndex = 0;
+            foreach (PL pl in PLList)
+            {
+                if (pl.pos == retrievePOSList[rIndex])
+                {
+                    if (rIndex == 0) rIndex += 1;   //找到主詞
+                    else if (rIndex == 1)           //找到動詞
+                    {
+                        foreach (WordAndPOS wap in pl.words)
+                        {
+                            if (isBeV(wap.word))    //判斷是否為Be動詞
+                            {
+                                rIndex += 1;
+                                break;
+                            }
+                        }
+                    }
+                    else if (pl.words.Count != 0)   //找到受詞
+                    {
+                        string nouns = "";
+                        foreach (WordAndPOS wap in pl.words)    //取出名詞
+                            if (wap.pos != "NNP" && wap.pos[0] == 'N')
+                                nouns += wap.word + " ";
+                        nouns = nouns.Trim();
+                        if (nouns != "") wikiTypeList.Add(nouns);
+                    }
+                }
+                else if (rIndex == 2 && pl.words.Count != 0 && pl.words[0].word == ",") //找到受詞後，遇到逗號就停止
+                    return wikiTypeList;
+            }
+            if (wikiTypeList.Count != 0) return wikiTypeList;
+            else return null;
+        }
+        //取得類型
+        private static List<string> getWikiType(string url)
+        {
+            List<string> wikiData = getWikiData(url);   //取得wiki上<p>標籤的所有句子
+            //取得第一句的WikiType(有些Wiki擷取出來的第一句不是完整句子，故使用此迴圈)
+            foreach (string data in wikiData)
+            {
+                List<List<PL>> PLArticle = Sentence.getPLArticle(data);
+                return getWikiType(PLArticle[0]);
+            }
+            return null;
+        }
+        #endregion
     }
 }

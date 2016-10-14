@@ -56,7 +56,7 @@ namespace QuestionAnswering
             string indexStr = "<section class=\"container-info antonyms\" >";
             int first = allWebData.IndexOf(indexStr);
             int last = 0;
-            while(first != -1)
+            while (first != -1)
             {
                 last = allWebData.IndexOf("</section>", first);
                 secStart.Add(first);
@@ -85,7 +85,7 @@ namespace QuestionAnswering
                 first = allWebData.IndexOf(indexStr, first);
             }
         }
-        
+
         //查詢該詞彙是否有某個同義詞
         public static bool hasSynonym(string word, string synonym)
         {
@@ -102,173 +102,6 @@ namespace QuestionAnswering
             if (antonymList.IndexOf(Stem.getStem(antonym)) != -1) return true;
             else return false;
         }
-
-        //同義詞轉換，將r2的詞彙轉換成r1的詞彙，回傳轉換完成的r2(Start)
-        public static void transformSynonym(ROOT r1, ROOT r2)
-        {
-            transformSynonymTraversal1(r1.S, r2);
-        }
-        //同義詞轉換，將r2的詞彙轉換成r1的詞彙，回傳轉換完成的r2(Traversal for r1)
-        private static void transformSynonymTraversal1(S s, ROOT r2)
-        {
-            if (s.WH != null)
-            {
-                foreach (PL pl in s.WH)
-                {
-                    foreach (WordAndPOS wap in pl.words)
-                        transformSynonymTraversal2(r2.S, wap.word, "WH");
-                    if (pl.next != null) transformSynonymTraversal1(pl.next, r2);
-                }
-            }
-            if (s.SQ != null)
-            {
-                foreach (PL pl in s.SQ)
-                {
-                    foreach (WordAndPOS wap in pl.words)
-                        transformSynonymTraversal2(r2.S, wap.word, "SQ");
-                    if (pl.next != null) transformSynonymTraversal1(pl.next, r2);
-                }
-            }
-            if (s.NP != null)
-            {
-                foreach (PL pl in s.NP)
-                {
-                    foreach (WordAndPOS wap in pl.words)
-                        transformSynonymTraversal2(r2.S, wap.word, "NP");
-                    if (pl.next != null) transformSynonymTraversal1(pl.next, r2);
-                }
-            }
-            if (s.VP != null)
-            {
-                foreach (PL pl in s.VP)
-                {
-                    foreach (WordAndPOS wap in pl.words)
-                        transformSynonymTraversal2(r2.S, wap.word, "VP");
-                    if (pl.next != null) transformSynonymTraversal1(pl.next, r2);
-                }
-            }
-            if (s.PP != null)
-            {
-                foreach (PL pl in s.PP)
-                {
-                    foreach (WordAndPOS wap in pl.words)
-                        transformSynonymTraversal2(r2.S, wap.word, "PP");
-                    if (pl.next != null) transformSynonymTraversal1(pl.next, r2);
-                }
-            }
-            if (s.ADJP != null)
-            {
-                foreach (PL pl in s.ADJP)
-                {
-                    foreach (WordAndPOS wap in pl.words)
-                        transformSynonymTraversal2(r2.S, wap.word, "ADJP");
-                    if (pl.next != null) transformSynonymTraversal1(pl.next, r2);
-                }
-            }
-            if (s.ADVP != null)
-            {
-                foreach (PL pl in s.ADVP)
-                {
-                    foreach (WordAndPOS wap in pl.words)
-                        transformSynonymTraversal2(r2.S, wap.word, "ADVP");
-                    if (pl.next != null) transformSynonymTraversal1(pl.next, r2);
-                }
-            }
-            if (s.Ss != null)
-            {
-                foreach (PL pl in s.Ss)
-                {
-                    foreach (WordAndPOS wap in pl.words)
-                        transformSynonymTraversal2(r2.S, wap.word, "Ss");
-                    if (pl.next != null) transformSynonymTraversal1(pl.next, r2);
-                }
-            }
-        }
-        //同義詞轉換，將r2的詞彙轉換成r1的詞彙，回傳轉換完成的r2(Traversal for r2)
-        private static void transformSynonymTraversal2(S s, string word, string pos)
-        {
-            if (s.WH != null)
-            {
-                foreach (PL pl in s.WH)
-                {
-                    if (pos == "WH")
-                        foreach (WordAndPOS wap in pl.words)
-                            if (Thesaurus.hasSynonym(word, wap.word)) wap.word = word;
-                    if (pl.next != null) transformSynonymTraversal2(pl.next, word, pos);
-                }
-            }
-            if (s.SQ != null)
-            {
-                foreach (PL pl in s.SQ)
-                {
-                    if (pos == "SQ")
-                        foreach (WordAndPOS wap in pl.words)
-                            if (Thesaurus.hasSynonym(word, wap.word)) wap.word = word;
-                    if (pl.next != null) transformSynonymTraversal2(pl.next, word, pos);
-                }
-            }
-            if (s.NP != null)
-            {
-                foreach (PL pl in s.NP)
-                {
-                    if (pos == "NP")
-                        foreach (WordAndPOS wap in pl.words)
-                            if (Thesaurus.hasSynonym(word, wap.word)) wap.word = word;
-                    if (pl.next != null) transformSynonymTraversal2(pl.next, word, pos);
-                }
-            }
-            if (s.VP != null)
-            {
-                foreach (PL pl in s.VP)
-                {
-                    if (pos == "VP")
-                        foreach (WordAndPOS wap in pl.words)
-                            if (Thesaurus.hasSynonym(word, wap.word)) wap.word = word;
-                    if (pl.next != null) transformSynonymTraversal2(pl.next, word, pos);
-                }
-            }
-            if (s.PP != null)
-            {
-                foreach (PL pl in s.PP)
-                {
-                    if (pos == "PP")
-                        foreach (WordAndPOS wap in pl.words)
-                            if (Thesaurus.hasSynonym(word, wap.word)) wap.word = word;
-                    if (pl.next != null) transformSynonymTraversal2(pl.next, word, pos);
-                }
-            }
-            if (s.ADJP != null)
-            {
-                foreach (PL pl in s.ADJP)
-                {
-                    if (pos == "ADJP")
-                        foreach (WordAndPOS wap in pl.words)
-                            if (Thesaurus.hasSynonym(word, wap.word)) wap.word = word;
-                    if (pl.next != null) transformSynonymTraversal2(pl.next, word, pos);
-                }
-            }
-            if (s.ADVP != null)
-            {
-                foreach (PL pl in s.ADVP)
-                {
-                    if (pos == "ADVP")
-                        foreach (WordAndPOS wap in pl.words)
-                            if (Thesaurus.hasSynonym(word, wap.word)) wap.word = word;
-                    if (pl.next != null) transformSynonymTraversal2(pl.next, word, pos);
-                }
-            }
-            if (s.Ss != null)
-            {
-                foreach (PL pl in s.Ss)
-                {
-                    if (pos == "Ss")
-                        foreach (WordAndPOS wap in pl.words)
-                            if (Thesaurus.hasSynonym(word, wap.word)) wap.word = word;
-                    if (pl.next != null) transformSynonymTraversal2(pl.next, word, pos);
-                }
-            }
-        }
-
         //是否在NoThesaurus檔案裡
         private static bool isInNoThesaurus(string word)
         {
@@ -277,8 +110,6 @@ namespace QuestionAnswering
             if (index != -1) return true;
             else return false;
         }
-        
-        //main
         //取得同義詞與反義詞(經過Stem處理)
         public static void getThesaurus(string word, out List<string> synonymList, out List<string> antonymList)
         {
@@ -289,7 +120,7 @@ namespace QuestionAnswering
             //載入Thesaurus
             if (isInNoThesaurus(word))
             {
-                Console.WriteLine(word + " 已記錄在 ((NoThesaurus.txt 檔裡。");
+                //Console.WriteLine(word + " 已記錄在 ((NoThesaurus.txt 檔裡。");
                 return;
             }
             SaveData.loadThesaurus(out synonymList, out antonymList, word);

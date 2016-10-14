@@ -115,15 +115,9 @@ namespace QuestionAnswering
         //取得WordNetResultList
         public static List<WordNetResult> getWordNetResultList(string word)
         {
-            //取得網頁原始碼
-            string allWebData = getAllWebData(word);
-
-            //取得原始碼中每個辭意解釋
-            List<string> liList = getLiList(allWebData);
-
-            //取得WordNetResultList
-            List<WordNetResult> wnrList = getWordNetResultList(liList);
-
+            string allWebData = getAllWebData(word);                    //取得網頁原始碼
+            List<string> liList = getLiList(allWebData);                //取得原始碼中每個辭意解釋
+            List<WordNetResult> wnrList = getWordNetResultList(liList); //取得WordNetResultList
             return wnrList;
         }
     }

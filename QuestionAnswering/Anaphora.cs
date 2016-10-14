@@ -28,12 +28,11 @@ namespace QuestionAnswering
     {
         //代名詞List
         private static List<string> PRPList = new List<string>() { "I", "me", "my", "you", "your",
-            "he", "him", "his", "she", "her", "it", "its", "we", "us", "our", "they", "them", "their", 
-            "mine", "yours", "hers", "ours", "theirs", "myself", "ourselves", "yourself", "yourselves", 
+            "he", "him", "his", "she", "her", "it", "its", "we", "us", "our", "they", "them", "their",
+            "mine", "yours", "hers", "ours", "theirs", "myself", "ourselves", "yourself", "yourselves",
             "himself", "herself", "itself", "themselves"};
 
-        //babynames.net
-
+        #region babynames.net
         //藉由babynames.net取得姓名資訊
         private static int getNameInfo(string name)
         {
@@ -75,7 +74,7 @@ namespace QuestionAnswering
                     }
                 }
             }
-            catch(WebException)
+            catch (WebException)
             {
                 allWebData = "";
             }
@@ -101,9 +100,9 @@ namespace QuestionAnswering
             }
             return 0;
         }
+        #endregion
 
-        //dictionary.com
-
+        #region dictionary.com
         //藉由dictionary.com取得名詞資訊
         private static AnaphoraInfo getNounInfo(string noun)
         {
@@ -136,7 +135,7 @@ namespace QuestionAnswering
             }
             return allWebData;
         }
-        //由dictionary.com原始碼取得名詞解釋(前一個)
+        //由dictionary.com原始碼取得名詞解釋(第一個)
         private static List<string> getDictionaryDef(string allWebData)
         {
             List<string> defList = new List<string>();
@@ -182,14 +181,15 @@ namespace QuestionAnswering
         {
             foreach (string def in defList)
             {
-                if (def.IndexOf(" man ") != -1 || def.IndexOf(" woman ") != -1 || 
-                    def.IndexOf(" person ") != -1 || def.IndexOf(" people ") != -1) return 1;
+                if (def.IndexOf(" man ") != -1 || def.IndexOf(" woman ") != -1 ||
+                    def.IndexOf(" person ") != -1 || def.IndexOf(" people ") != -1 ||
+                    def.IndexOf(" human ") != -1) return 1;
             }
             return 2;
         }
+        #endregion
 
-        //get AnaphoraInfo
-
+        #region AnaphoraInfo
         //取得代名詞的AnaphoraInfo
         private static AnaphoraInfo getPRPAnaphoraInfo(string PRP)
         {
@@ -257,8 +257,9 @@ namespace QuestionAnswering
             if (infobox != null && infobox.isHuman())
             {
                 ai.human = 1;       //true
-                if (infobox.isSingular() || wikiTitle.IndexOf(NNP) != -1) ai.number = 1;    //singular
-                else ai.number = 2; //plural
+                if (!infobox.isSingular()) ai.number = 2;   //plural
+                //else if (wikiTitle.IndexOf(NNP) != -1) ai.number = 1;   //singular
+                else ai.number = 1; //singular
             }
             else
             {
@@ -308,7 +309,7 @@ namespace QuestionAnswering
             if (ai1 == null || ai2 == null) return false;
             if (ai1.word == "" || ai2.word == "") return false;
             if (ai1.number != 0 && ai2.number != 0 && ai1.number != ai2.number) return false;
-            if (ai1.gender != 0 && ai2.gender != 0 && ai1.gender != 3 && ai2.gender != 3 && 
+            if (ai1.gender != 0 && ai2.gender != 0 && ai1.gender != 3 && ai2.gender != 3 &&
                 ai1.gender != ai2.gender) return false;
             if (ai1.human != 0 && ai2.human != 0 && ai1.human != ai2.human) return false;
             return true;
@@ -333,9 +334,9 @@ namespace QuestionAnswering
             Console.WriteLine("word: {0}, number: {1}, gender: {2}, human: {3}",
                 ai.word, number, gender, human);
         }
+        #endregion
 
-        //check PL
-
+        #region Check PL
         //檢查PL裡是否有專有名詞
         private static bool hasNNPFromPL(PL pl)
         {
@@ -353,7 +354,7 @@ namespace QuestionAnswering
             return false;
         }
         //將PL裡的名詞擷取出來
-        private static string getNounsFromPL(PL pl)
+        public static string getNounsFromPL(PL pl)
         {
             string nouns = "";
             for (int i = 0; i < pl.words.Count; i++)
@@ -365,10 +366,10 @@ namespace QuestionAnswering
             }
             return nouns.Trim();
         }
+        #endregion
 
-        //False Subject
-
-        //從POSTree抓取的詞性順序。e.g. NP + VP + NP
+        #region False Subject
+        //抓取的詞性順序。e.g. NP + VP + NP
         private static List<string> retrievePLPOSList = new List<string>(); //phrase level
         private static List<string> retrieveWLPOSList = new List<string>(); //word level
         //設置retrievePLPOSList、retrieveWLPOSList(輸入type)
@@ -379,7 +380,7 @@ namespace QuestionAnswering
             switch (type)
             {
                 case 0: //It + ... + that + ...
-                    retrievePLPOSList = splitStringByComma("NP,S");
+                    retrievePLPOSList = splitStringByComma("NP,SBAR");
                     retrieveWLPOSList = splitStringByComma("PRP,IN");
                     break;
                 case 1: //It + ... + to + ...
@@ -403,368 +404,144 @@ namespace QuestionAnswering
             cut.ToArray();
             return tempList;
         }
-        //檢查是否為虛主詞(Start)
-        private static bool isFalseSubject(S s, string word)
+        //檢查是否為虛主詞
+        //pIndex: 檢查PLList的cIndex項是否為虛主詞
+        public static bool isFalseSubject(List<PL> PLList, int pIndex, string word)
         {
-            if (word.ToLower() == "it")
+            if (word.ToLower() != "it") return false;
+            for (int i = 0; i <= 2; i++)
             {
-                for (int i = 0; i <= 2; i++)
+                int rIndex = 0;
+                setRetrievePOSList(i);
+                for (int j = pIndex; j < PLList.Count; j++)
                 {
-                    setRetrievePOSList(i);
-                    if (isFalseSubjectTraversal(s, 0)) return true; //檢查是否為虛主詞(Traversal)
+                    if (PLList[j].pos != "ROOT" && PLList[j].pos != "S" && 
+                        PLList[j].pos != "SBAR" && PLList[j].pos != "NP" && PLList[j].pos != "VP" &&
+                        PLList[j].pos != "ADJP" && PLList[j].pos != "ADVP") break;  //遇到這些詞性以外的PL就停止
+                    if (PLList[j].pos == retrievePLPOSList[rIndex])     //符合PL詞性
+                    {
+                        foreach (WordAndPOS wap in PLList[j].words)
+                        {
+                            if (retrieveWLPOSList[rIndex] == wap.pos)   //(只要其中一個)符合WL詞性
+                            {
+                                rIndex += 1;
+                                break;
+                            }
+                        }
+                    }
+                    if (retrievePLPOSList.Count == rIndex) return true; //已經全數符合
                 }
             }
             return false;
         }
-        //檢查是否為虛主詞(Traversal)
-        //rIndex: 接下來要抓retrievePOSList中第幾個索引的詞性
-        private static bool isFalseSubjectTraversal(S s, int rIndex)
-        {
-            bool isFalseSubject = false;
-            if (s.NP != null)
-            {
-                if (retrievePLPOSList[rIndex] == "NP")    //符合PL詞性
-                {
-                    bool hasWLPOS = false;
-                    foreach (PL pl in s.NP)
-                    {
-                        if (pl.words.Count == 0 && retrieveWLPOSList[rIndex] == "") hasWLPOS = true;    //e.g. (S
-                        foreach (WordAndPOS wap in pl.words)
-                        {
-                            if (retrieveWLPOSList[rIndex] == "") hasWLPOS = true;
-                            if (retrieveWLPOSList[rIndex] == wap.pos) hasWLPOS = true;  //(只要其中一個)符合WL詞性
-                            if (hasWLPOS) break;
-                        }
-                        if (hasWLPOS) break;
-                    }
-                    if (hasWLPOS) rIndex += 1;  //符合WL詞性，準備檢查下一個詞性
-                    if (retrievePLPOSList.Count == rIndex) return true; //已經全數符合
-                }
-                foreach (PL pl in s.NP)
-                {
-                    if (pl.next != null)
-                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
-                }
-            }
-            if (s.VP != null)
-            {
-                if (retrievePLPOSList[rIndex] == "VP")    //符合PL詞性
-                {
-                    bool hasWLPOS = false;
-                    foreach (PL pl in s.VP)
-                    {
-                        if (pl.words.Count == 0 && retrieveWLPOSList[rIndex] == "") hasWLPOS = true;    //e.g. (S
-                        foreach (WordAndPOS wap in pl.words)
-                        {
-                            if (retrieveWLPOSList[rIndex] == "") hasWLPOS = true;
-                            if (retrieveWLPOSList[rIndex] == wap.pos) hasWLPOS = true;  //(只要其中一個)符合WL詞性
-                            if (hasWLPOS) break;
-                        }
-                        if (hasWLPOS) break;
-                    }
-                    if (hasWLPOS) rIndex += 1;  //符合WL詞性，準備檢查下一個詞性
-                    if (retrievePLPOSList.Count == rIndex) return true; //已經全數符合
-                }
-                foreach (PL pl in s.VP)
-                {
-                    if (pl.next != null)
-                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
-                }
-            }
-            if (s.ADJP != null)
-            {
-                foreach (PL pl in s.ADJP)
-                {
-                    if (pl.next != null)
-                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
-                }
-            }
-            if (s.ADVP != null)
-            {
-                foreach (PL pl in s.ADVP)
-                {
-                    if (pl.next != null)
-                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
-                }
-            }
-            if (s.Ss != null)
-            {
-                if (retrievePLPOSList[rIndex].IndexOf("S") == 0)    //符合PL詞性
-                {
-                    bool hasWLPOS = false;
-                    foreach (PL pl in s.Ss)
-                    {
-                        if (pl.words.Count == 0 && retrieveWLPOSList[rIndex] == "") hasWLPOS = true;    //e.g. (S
-                        foreach (WordAndPOS wap in pl.words)
-                        {
-                            if (retrieveWLPOSList[rIndex] == "") hasWLPOS = true;
-                            if (retrieveWLPOSList[rIndex] == wap.pos) hasWLPOS = true;  //(只要其中一個)符合WL詞性
-                            if (hasWLPOS) break;
-                        }
-                        if (hasWLPOS) break;
-                    }
-                    if (hasWLPOS) rIndex += 1;  //符合WL詞性，準備檢查下一個詞性
-                    if (retrievePLPOSList.Count == rIndex) return true; //已經全數符合
-                }
-                foreach (PL pl in s.Ss)
-                {
-                    if (pl.next != null)
-                        isFalseSubject = isFalseSubject || isFalseSubjectTraversal(pl.next, rIndex);
-                }
-            }
-            return isFalseSubject;
-        }
+        #endregion
 
-        //Reflexive Pronoun
-
+        #region Reflexive Pronoun
         //檢查是否為強調意義的反身代名詞(更改為只要是反身代名詞就不處理Anaphora)
-        private static bool isReflexivePronoun(S s, string word)
+        private static bool isReflexivePronoun(string word)
         {
             //檢查是否為反身代名詞(利用PRPList)
             bool isRP = false;
             for (int i = 23; i <= 30; i++) if (word.ToLower() == PRPList[i]) isRP = true;
             if (!isRP) return false;
             return true;
-
-            //尋找反身代名詞位在哪個NP & 哪個word
-            /*int posP = 0, posW = 0;
-            for (int i = 0; i < s.NP.Count; i++)
-                for (int j = 0; j < s.NP[i].words.Count; j++)
-                    if (s.NP[i].words[j].word == word)
-                    {
-                        posP = i;
-                        posW = j;
-                    }*/
-            
-            /*if (s.NP.Count > 1)                 //有其他的NP
-            {
-                //s.NP.RemoveAt(posP);            //移除掉反身代名詞的NP
-                return true;
-            }
-            if (s.NP[0].words.Count > 1)        //有其他的word
-            {
-                //s.NP[0].words.RemoveAt(posW);   //移除掉反身代名詞的word
-                return true;
-            }*/
-            //return false;
         }
+        #endregion
 
-        //Transform Anaphora
-
+        #region Transform Anaphora
         //轉換Anaphora
-        //rootList: 文章中每個句子的root
-        public static void transformAnaphora(List<ROOT> rootList)
+        public static void transformAnaphora(List<List<PL>> PLArticle)
         {
-            for (int i = 0; i < rootList.Count; i++)
+            int aIndex = 0; //count for Article
+            foreach (List<PL> PLList in PLArticle)
             {
-                findAnaphoraTraversal(rootList, i, rootList[i].S);  //找出Anaphora(Traversal)
-            }
-        }
-        //轉換Anaphora(Traversal)
-        //rootList: 文章中每個句子的root
-        //rootListIndex: 目前處理到第幾個句子
-        private static void findAnaphoraTraversal(List<ROOT> rootList, int rootListIndex, S s)
-        {
-            if (s.WH != null)
-                foreach (PL pl in s.WH)
-                    if (pl.next != null)
-                        findAnaphoraTraversal(rootList, rootListIndex, pl.next);
-            if (s.SQ != null)
-                foreach (PL pl in s.SQ)
-                    if (pl.next != null)
-                        findAnaphoraTraversal(rootList, rootListIndex, pl.next);
-            if (s.NP != null)
-            {
-                foreach (PL pl in s.NP)
+                int pIndex = 0; //count for PLList
+                foreach (PL pl in PLList)
                 {
-                    for (int i = 0; i < pl.words.Count; i++)
+                    if (pl.pos == "NP")
                     {
-                        if (pl.words[i].pos.IndexOf("PRP") == 0)        //代名詞
+                        int wIndex = 0; //count for words
+                        foreach (WordAndPOS wap in pl.words)
                         {
-                            if (isFalseSubject(s, pl.words[i].word))    //檢查是否為虛主詞
+                            if (wap.pos.IndexOf("PRP") == 0)    //代名詞
                             {
-                                Console.WriteLine("擁有虛主詞 " + pl.words[i].word + " 。");
+                                if (isFalseSubject(PLList, pIndex, wap.word))   //檢查是否為虛主詞
+                                {
+                                    Console.WriteLine("擁有虛主詞 " + wap.word + " 。");
+                                }
+                                else if (isReflexivePronoun(wap.word))  //檢查是否為強調意義的反身代名詞
+                                {
+                                    Console.WriteLine("擁有強調意義的反身代名詞 " + wap.word + " 。");
+                                }
+                                else    //不是虛主詞或反身代名詞，轉換Anaphora
+                                {
+                                    AnaphoraInfo ai = getPRPAnaphoraInfo(wap.word); //取得代名詞的AnaphoraInfo
+                                    PL antecedentPL = findAntecedent(PLArticle, aIndex, pIndex, ai);    //找出Antecedent(Start)
+                                    if (antecedentPL != null)   //找到Antecedent
+                                    {
+                                        pl.words = transformPRPAnaphoraWAPList(pl.words, antecedentPL.words);   //將代名詞的Anaphora取代成Antecedent
+                                        break;
+                                    }
+                                }
                             }
-                            else if (isReflexivePronoun(s, pl.words[i].word))   //檢查是否為強調意義的反身代名詞
+                            else if (wIndex == 0 && !hasNNPFromPL(pl))   //開頭是冠詞the、that等的普通名詞
                             {
-                                Console.WriteLine("擁有強調意義的反身代名詞 " + pl.words[i].word + " 。");
-                            }
-                            else    //不是虛主詞或反身代名詞，轉換Anaphora
-                            {
-                                AnaphoraInfo ai = getPRPAnaphoraInfo(pl.words[i].word);             //取得代名詞的AnaphoraInfo
-                                PL antecedentPL = findAntecedent(rootList, rootListIndex, ai, pl);  //找出Antecedent(Start)
+                                bool hasNNS = hasNNSFromPL(pl);     //檢查是否有複數名詞
+                                string nouns = getNounsFromPL(pl);  //將PL裡的名詞擷取出來
+                                if (nouns == "") continue;
+                                AnaphoraInfo ai = getNPAnaphoraInfo(nouns, hasNNS);                 //取得普通名詞的AnaphoraInfo
+                                PL antecedentPL = findAntecedent(PLArticle, aIndex, pIndex, ai);    //找出普通名詞的Antecedent(Start)
                                 if (antecedentPL != null)   //找到Antecedent
                                 {
-                                    pl.words = transformPRPAnaphoraWAPList(pl.words, antecedentPL.words);   //將代名詞的Anaphora取代成Antecedent
+                                    pl.words = transformNPAnaphoraWAPList(pl.words, antecedentPL.words);    //將普通名詞的Anaphora取代成Antecedent
                                     break;
                                 }
                             }
-                        }
-                        else if (i == 0 && /*pl.words[i].pos == "DT" && 
-                            pl.words[i].word.ToLower().IndexOf("th") == 0 &&*/ !hasNNPFromPL(pl)) //開頭是冠詞the、that等的普通名詞
-                        {
-                            bool hasNNS = hasNNSFromPL(pl);     //檢查是否有複數名詞
-                            string nouns = getNounsFromPL(pl);  //將PL裡的名詞擷取出來
-                            if (nouns == "") continue;
-                            AnaphoraInfo ai = getNPAnaphoraInfo(nouns, hasNNS);                 //取得普通名詞的AnaphoraInfo
-                            PL antecedentPL = findAntecedent(rootList, rootListIndex, ai, pl);  //找出普通名詞的Antecedent(Start)
-                            if (antecedentPL != null)   //找到Antecedent
-                            {
-                                pl.words = transformNPAnaphoraWAPList(pl.words, antecedentPL.words);    //將普通名詞的Anaphora取代成Antecedent
-                                break;
-                            }
+                            wIndex += 1;
                         }
                     }
-                    if (pl.next != null) findAnaphoraTraversal(rootList, rootListIndex, pl.next);
+                    pIndex += 1;
                 }
+                aIndex += 1;
             }
-            if (s.VP != null)
-                foreach (PL pl in s.VP)
-                    if (pl.next != null)
-                        findAnaphoraTraversal(rootList, rootListIndex, pl.next);
-            if (s.PP != null)
-                foreach (PL pl in s.PP)
-                    if (pl.next != null)
-                        findAnaphoraTraversal(rootList, rootListIndex, pl.next);
-            if (s.ADJP != null)
-                foreach (PL pl in s.ADJP)
-                    if (pl.next != null)
-                        findAnaphoraTraversal(rootList, rootListIndex, pl.next);
-            if (s.ADVP != null)
-                foreach (PL pl in s.ADVP)
-                    if (pl.next != null)
-                        findAnaphoraTraversal(rootList, rootListIndex, pl.next);
-            if (s.Ss != null)
-                foreach (PL pl in s.Ss)
-                    if (pl.next != null)
-                        findAnaphoraTraversal(rootList, rootListIndex, pl.next);
         }
+        #endregion
 
-        //Find Antecedent
-
-        //找出Antecedent(Start)
-        //rootList: 文章中每個句子的root
-        //rootListIndex: 目前處理到第幾個句子
+        #region Find Antecedent
+        //aIndex: 目前處理到第幾個句子
+        //pIndex: 目前處理到第幾個PL
         //ai: 要被取代的Anaphora資訊
-        //anaphoraPL: 要被取代的Anaphora所位於的PL，用於確認Antecedent在Anaphora之前
-        private static PL findAntecedent(List<ROOT> rootList, int rootListIndex, AnaphoraInfo ai, PL anaphoraPL)
+        private static PL findAntecedent(List<List<PL>> PLArticle, int aIndex, int pIndex, AnaphoraInfo ai)
         {
             PL antecedentPL = null;
             int ct = 0;
             //向前找
-            for (int i = rootListIndex; i >= 0; i--)
+            for (int i = aIndex; i >= 0; i--)
             {
                 ct += 1;
                 if (ct > 3) break;  //範圍至前三句
-                bool stop = false;
-                antecedentPL = findAntecedentTraversal(ai, rootList[i].S, anaphoraPL, out stop);
+                antecedentPL = findAntecedent(PLArticle[i], pIndex, ai);
                 if (antecedentPL != null) return antecedentPL;  //找到antecedentPL
             }
             return antecedentPL;
         }
-        //找出Antecedent(Traversal)
-        //ai: 要被取代的Anaphora資訊
-        //anaphoraPL: 要被取代的Anaphora所在的PL，用於確認Antecedent在Anaphora之前
-        private static PL findAntecedentTraversal(AnaphoraInfo ai, S s, PL anaphoraPL, out bool stop)
+        private static PL findAntecedent(List<PL> PLList, int pIndex, AnaphoraInfo ai)
         {
-            stop = false;
-            PL antecedentPL = null;
-            if (s.WH != null)
+            for (int i = 0; i < PLList.Count; i++)
             {
-                foreach (PL pl in s.WH)
+                if (i == pIndex)    //已經檢查到Anaphora所在的PL
                 {
-                    if (pl.next != null && antecedentPL == null && !stop)
-                    {
-                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
-                        if (antecedentPL != null) return antecedentPL;
-                    }
+                    pIndex = -1;
+                    continue;
                 }
-            }
-            if (s.SQ != null)
-            {
-                foreach (PL pl in s.SQ)
+                if (PLList[i].words.Count != 0 && evaluateAntecedent(ai, PLList[i]))    //評估Antecedent
                 {
-                    if (pl.next != null && antecedentPL == null && !stop)
-                    {
-                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
-                        if (antecedentPL != null) return antecedentPL;
-                    }
+                    return PLList[i];
                 }
+                pIndex = -1;
             }
-            if (s.NP != null)
-            {
-                foreach (PL pl in s.NP)
-                {
-                    if (pl == anaphoraPL) stop = true;  //已經檢查到Anaphora所在的PL
-                    else stop = false;
-                    if (antecedentPL == null && !stop && pl.words.Count != 0 && evaluateAntecedent(ai, pl)) //評估Antecedent
-                    {
-                        antecedentPL = pl;
-                        return antecedentPL;
-                    }
-                    if (pl.next != null) antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
-                }
-            }
-            if (s.VP != null)
-            {
-                foreach (PL pl in s.VP)
-                {
-                    if (pl.next != null && antecedentPL == null && !stop)
-                    {
-                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
-                        if (antecedentPL != null) return antecedentPL;
-                    }
-                }
-            }
-            if (s.PP != null)
-            {
-                foreach (PL pl in s.PP)
-                {
-                    if (pl.next != null && antecedentPL == null && !stop)
-                    {
-                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
-                        if (antecedentPL != null) return antecedentPL;
-                    }
-                }
-            }
-            if (s.ADJP != null)
-            {
-                foreach (PL pl in s.ADJP)
-                {
-                    if (pl.next != null && antecedentPL == null && !stop)
-                    {
-                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
-                        if (antecedentPL != null) return antecedentPL;
-                    }
-                }
-            }
-            if (s.ADVP != null)
-            {
-                foreach (PL pl in s.ADVP)
-                {
-                    if (pl.next != null && antecedentPL == null && !stop)
-                    {
-                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
-                        if (antecedentPL != null) return antecedentPL;
-                    }
-                }
-            }
-            if (s.Ss != null)
-            {
-                foreach (PL pl in s.Ss)
-                {
-                    if (pl.next != null && antecedentPL == null && !stop)
-                    {
-                        antecedentPL = findAntecedentTraversal(ai, pl.next, anaphoraPL, out stop);
-                        if (antecedentPL != null) return antecedentPL;
-                    }
-                }
-            }
-            return antecedentPL;
+            return null;
         }
-
-        //Evaluate Antecedent
-
         //評估Antecedent
         //ai: 要被取代的Anaphora資訊
         //pl: 要被評估的Antecedent PL
@@ -797,8 +574,11 @@ namespace QuestionAnswering
                     Infobox infobox = Wiki.getInfobox(nouns, out wikiTitle);
                     if (infobox != null)
                     {
-                        string[] ary = infobox.infobox.Split(' ');
-                        foreach (string str in ary) if (Thesaurus.hasSynonym(str, ai.word)) isSyn = true;
+                        foreach (string ib in infobox.infobox)
+                        {
+                            string[] ary = ib.Split(' ');
+                            foreach (string str in ary) if (Thesaurus.hasSynonym(str, ai.word)) isSyn = true;
+                        }
                     }
                     //else isSyn = true;
 
@@ -808,9 +588,9 @@ namespace QuestionAnswering
             }
             return false;
         }
+        #endregion
 
-        //Transform WAPList
-
+        #region Transform WAPList
         //將代名詞的Anaphora取代成Antecedent
         private static List<WordAndPOS> transformPRPAnaphoraWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
         {
@@ -856,5 +636,6 @@ namespace QuestionAnswering
             foreach (WordAndPOS wap in wapList) if (wap.word == "'s") return true;
             return false;
         }
+        #endregion
     }
 }

@@ -8,118 +8,91 @@ namespace QuestionAnswering
 {
     class Clause
     {
-        //從POSTree抓取的詞性順序。e.g. NP + VP + NP
-        private static List<string> retrievePOSList = new List<string>();
-        //設置retrievePOSList(輸入type)
-        private static void setRetrievePOSList(int type)
+        //判斷兩個詞是否同根
+        public static bool isDerivative(string w1, string w2)
         {
-            retrievePOSList = new List<string>();
-            switch (type)
+            //先經過Stem
+            w1 = Stem.getStem(w1);
+            w2 = Stem.getStem(w2);
+            //找出最大連續相同數。 e.g. happy & happiness: 4，apple & axxxe: 1
+            int maxSame = -1;
+            for (int i = 0; i < w1.Length; i++)
             {
-                case 0: //一個動詞
-                    setRetrievePOSList("NP,VP,NP");
-                    break;
-                case 1:
-                    setRetrievePOSList("NP,NP,VP,NP");
-                    break;
-                case 2:
-                    setRetrievePOSList("NP,VP,NP,NP");
-                    break;
-                case 3:
-                    setRetrievePOSList("NP,NP,VP,NP,NP");
-                    break;
-                case 4://兩個動詞
-                    setRetrievePOSList("NP,VP,VP,NP");
-                    break;
-                case 5:
-                    setRetrievePOSList("NP,NP,VP,VP,NP");
-                    break;
-                case 6:
-                    setRetrievePOSList("NP,VP,VP,NP,NP");
-                    break;
-                case 7:
-                    setRetrievePOSList("NP,NP,VP,VP,NP,NP");
-                    break;
-            }
-        }
-        //設置retrievePOSList(輸入字串)
-        private static void setRetrievePOSList(string type)
-        {
-            retrievePOSList = new List<string>();
-            string[] cut = type.Split(',');
-            foreach (string c in cut) retrievePOSList.Add(c);
-        }
-
-        //取得子句(Start)
-        public static List<List<PLAndPOS>> getClauseList(ROOT root, int rType)
-        {
-            //設置retrievePOSList
-            setRetrievePOSList(rType);
-
-            //將POSTree轉換成List<PL>
-            List<PLAndPOS> PLList = POSTree.getPLList(root);
-
-            //取得子句，每個子句由List<PLAndPOS>組成
-            List<List<PLAndPOS>> clauseList = getClauseListTraversal(PLList, 0, 0);
-
-            //去掉沒有retrievePOSList所有詞性的子句
-            for (int i = 0; i < clauseList.Count; i++)
-            {
-                if (clauseList[i].Count != retrievePOSList.Count)
+                for (int j = 0; j < w2.Length; j++)
                 {
-                    clauseList.RemoveAt(i);
-                    i--;
+                    int ct = 0;
+                    if (w1[i] == w2[j]) ct += 1;
+                    while (true)
+                    {
+                        if (i + ct >= w1.Length || j + ct >= w2.Length) break;
+                        if (w1[i + ct] != w2[j + ct]) break;
+                        ct += 1;
+                    }
+                    if (ct != 0 && maxSame < ct) maxSame = ct;
                 }
             }
-            return clauseList;
+            if (w1.Length - maxSame <= 1 && w2.Length - maxSame <= 1) return true;
+            return false;
         }
-        //取得子句(Traversal)
-        //PLList: 整個句子的PLAndPOS列表
-        //plIndex: 接下來從PLList中第幾個索引開始抓取
-        //rIndex: 接下來要抓retrievePOSList中第幾個索引的詞性
-        private static List<List<PLAndPOS>> getClauseListTraversal(List<PLAndPOS> PLList, int plIndex, int rIndex)
+        //判斷是否為需要的詞性
+        private static bool isNeedPOS(WordAndPOS wap)
         {
-            List<List<PLAndPOS>> clauseList = new List<List<PLAndPOS>>();
-            if (rIndex < retrievePOSList.Count) //需要的詞性還沒有取完
+            if (wap.pos[0] == 'N' || wap.pos[0] == 'V' || wap.pos.IndexOf("JJ") == 0) return true;
+            else return false;
+        }
+        //判斷兩個WordAndPOS是否關聯
+        private static bool isRelevant(WordAndPOS wap1, WordAndPOS wap2)
+        {
+            if (Stem.getStem(wap1.word) == Stem.getStem(wap2.word)) return true;    //詞相同
+            else if (wap1.word.IndexOf("NNans") == 0 && wap2.pos[0] == 'N') return true;
+            else if (wap1.pos[0] == wap2.pos[0])    //詞性相同
             {
-                for (int i = plIndex; i < PLList.Count; i++)
+                return Thesaurus.hasAntonym(wap1.word, wap2.word);  //判斷是否為同義詞
+            }
+            else    //詞性不同
+            {
+                return isDerivative(wap1.word, wap2.word);  //判斷兩個詞是否同根
+            }
+        }
+        public static void match(List<PL> PLList1, List<PL> PLList2)
+        {
+            List<WordAndPOS> matchList1 = new List<WordAndPOS>();
+            List<WordAndPOS> matchList2 = new List<WordAndPOS>();
+            int pointer = 0;
+            foreach (PL pl in PLList1)
+            {
+                foreach (WordAndPOS wap1 in pl.words)
                 {
-                    //如果目前要取的詞性等於這個PL的詞性，而且這個PL有內容
-                    if (PLList[i].pos == retrievePOSList[rIndex] && PLList[i].pl.words.Count != 0)
+                    if (isNeedPOS(wap1))    //判斷是否為需要的詞性
                     {
-                        List<List<PLAndPOS>> tempCluaseList = new List<List<PLAndPOS>>();
-                        tempCluaseList.AddRange(getClauseListTraversal(PLList, i + 1, rIndex + 1)); //取得從這個PL開始的子句
-                        //next之後沒有詞彙了，加上這個PL
-                        if (tempCluaseList.Count == 0)
+                        for (int i = pointer; i < PLList2.Count; i++)
                         {
-                            List<PLAndPOS> tempPP = new List<PLAndPOS>();
-                            tempPP.Add(PLList[i]);
-                            tempCluaseList.Add(tempPP);
+                            bool isR = false;
+                            foreach (WordAndPOS wap2 in PLList2[i].words)
+                            {
+                                if (matchList2.IndexOf(wap2) != -1) continue;   //wap2沒有加入過
+                                if (isNeedPOS(wap2))    //判斷是否為需要的詞性
+                                {
+                                    isR = isRelevant(wap1, wap2);   //判斷兩個WordAndPOS是否關聯
+                                    if (isR)
+                                    {
+                                        matchList1.Add(wap1);
+                                        matchList2.Add(wap2);
+                                        pointer = i;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (isR) break;
                         }
-                        //next之後有詞彙，將每個子句的開頭加上這個PL
-                        else for (int j = 0; j < tempCluaseList.Count; j++) tempCluaseList[j].Insert(0, PLList[i]);
-                        clauseList.AddRange(tempCluaseList);
                     }
                 }
             }
-            return clauseList;
-        }
-        
-        //印出子句
-        public static void printCluaseList(List<List<PLAndPOS>> clauseList)
-        {
-            foreach (List<PLAndPOS> clause in clauseList)
-            {
-                foreach (PLAndPOS plpos in clause)
-                {
-                    foreach (WordAndPOS wap in plpos.pl.words)
-                    {
-                        Console.Write(wap.word + " ");
-                    }
-                    Console.Write(", ");
-                }
-                Console.WriteLine();
-            }
+
+            foreach (WordAndPOS wap in matchList1) Console.Write(wap.word + ", ");
+            Console.WriteLine();
+            foreach (WordAndPOS wap in matchList2) Console.Write(wap.word + ", ");
+            Console.WriteLine();
         }
     }
 }

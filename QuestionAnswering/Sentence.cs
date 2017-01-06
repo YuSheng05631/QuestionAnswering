@@ -25,20 +25,32 @@ namespace QuestionAnswering
     {
         public List<WordAndPOS> words;
         public List<PL> next;
+        public PL prev, brotherY, brotherO;
         public string pos;
-        public int indent;
+        public int indent, index;
         public PL()
         {
             this.words = new List<WordAndPOS>();
             this.next = new List<PL>();
             this.pos = "";
             this.indent = 0;
+            this.index = 0;
         }
     }
     class Sentence
     {
+        //取得文章的斷行點(之後會在PLArticle插入null，以便尋找Antecedent時找到中斷點)
+        private List<int> getSegmentList(string article, StanfordCoreNLP.ResultSet rs)
+        {
+            List<int> segmentList = new List<int>();
+            for (int i = 0; i < rs.sentenceList.Count; i++)
+                if (article.IndexOf(rs.sentenceList[i] + "\n") != -1)
+                    segmentList.Add(i + 1);
+            return segmentList;
+        }
+
         //將填空的標籤取代成NNans + 標籤字母
-        private static string replaceSlot(string sentence)
+        private string replaceSlot(string sentence)
         {
             int first = sentence.IndexOf("(");
             int last = first + 2;
@@ -58,49 +70,36 @@ namespace QuestionAnswering
             }
             return sentence;
         }
+        //去掉<U>標籤(保留<B>)
+        private string removeULabel(string sentence)
+        {
+            int first = 0, last = 0;
+            first = sentence.IndexOf("<U");
+            while (first != -1)
+            {
+                last = sentence.IndexOf(">", first) + 1;
+                sentence = sentence.Remove(first, last - first);
+
+                first = sentence.IndexOf("</U", first);
+                last = sentence.IndexOf(">", first) + 1;
+                sentence = sentence.Remove(first, last - first);
+
+                first = sentence.IndexOf("<U", first);
+            }
+            return sentence;
+        }
 
         //取得句子的詞性標記結果(依行分割)
-        private static string[] getLPLines(string POSTree)
+        private string[] getLPLines(string POSTree)
         {
             POSTree = POSTree.Trim(new char[] { '\n', '\r' });
             return POSTree.Split('\n');
         }
-        //取得LPLines每一行的縮排
-        private static List<int> getLPLinesIndent(string[] LPLines)
-        {
-            List<int> LPLinesIndent = new List<int>();
-            foreach (string line in LPLines) LPLinesIndent.Add(line.IndexOf("("));
-            return LPLinesIndent;
-        }
-        //取得LPLines各縮排數有哪些行
-        private static List<List<int>> getLPLinesIndentNote(List<int> LPLinesIndent)
-        {
-            #region e.g.
-            /*
-            第0個縮排(縮排=0)有：第0行
-            第1個縮排(縮排=2)有：第1、4行
-            第2個縮排(縮排=4)有：第2、3、5行
-            第4個縮排(縮排=6)有：第6行
-             */
-            #endregion
-            List<List<int>> LPLinesIndentNote = new List<List<int>>();
-            for (int n = 0; ; n += 2)
-            {
-                List<int> result = Enumerable.Range(0, LPLinesIndent.Count)
-                    .Where(i => LPLinesIndent[i] == n)
-                    .ToList();
-                if (result.Count == 0) break;
-                LPLinesIndentNote.Add(result);
-            }
-            if (LPLinesIndentNote[0].Count > 1) return new List<List<int>>();   //若有兩個ROOT以上
-            return LPLinesIndentNote;
-        }
-
-        //取得PLList(處理words & pos)
-        private static List<PL> getPLListWP(string[] LPLines)
+        //取得PLList(處理words, pos, indent & index)
+        private List<PL> getPLListW(string[] LPLines)
         {
             List<PL> PLList = new List<PL>();
-            int first = 0, last = 0;
+            int first = 0, last = 0, index = 0;
             foreach (string line in LPLines)
             {
                 first = line.IndexOf("(");
@@ -141,40 +140,52 @@ namespace QuestionAnswering
                             first = line.IndexOf("(", first);
                         }
                     }
+                    tempPL.index = index;
+                    tempPL.indent = line.IndexOf("(");
                     PLList.Add(tempPL);
+                    index += 1;
                 }
             }
             return PLList;
         }
-        //取得PLList(處理indent)
-        private static List<PL> getPLListI(List<PL> PLList, List<int> LPLinesIndent)
+        //取得PLList(處理next & prev)
+        private void getPLListN(List<PL> PLList)
         {
-            for (int i = 0; i < PLList.Count; i++) PLList[i].indent = LPLinesIndent[i];
-            return PLList;
-        }
-        //取得PLList(處理next)
-        private static List<PL> getPLListN(List<PL> PLList, List<List<int>> LPLinesIndentNote)
-        {
-            //尋找上一個縮排中正確的母節點
-            for (int i = 1; i < LPLinesIndentNote.Count; i++)
+            for (int i = 0; i < PLList.Count; i++)
             {
-                for (int j = 0; j < LPLinesIndentNote[i].Count; j++)
+                for (int j = i - 1; j >= 0; j--)
                 {
-                    int index = 0;
-                    for (int m = 0; m < LPLinesIndentNote[i - 1].Count; m++)
+                    if (PLList[i].indent > PLList[j].indent)
                     {
-                        if (LPLinesIndentNote[i - 1][m] < LPLinesIndentNote[i][j]) index = m;
-                        else break;
+                        PLList[i].prev = PLList[j];
+                        PLList[j].next.Add(PLList[i]);
+                        break;
                     }
-                    PLList[LPLinesIndentNote[i - 1][index]].next.Add(PLList[LPLinesIndentNote[i][j]]);
                 }
             }
-            return PLList;
+        }
+        //取得PLList(處理brotherY & brotherO)
+        private void getPLListB(List<PL> PLList)
+        {
+            for (int i = 0; i < PLList.Count; i++)
+            {
+                for (int j = i - 1; j >= 0; j--)
+                {
+                    if (PLList[i].indent == PLList[j].indent)
+                    {
+                        PLList[i].brotherY = PLList[j];
+                        PLList[j].brotherO = PLList[i];
+                        break;
+                    }
+                    else if (PLList[i].indent > PLList[j].indent) break;
+                }
+            }
         }
 
         //印出PLList
-        public static void printPLList(List<PL> PLList)
+        public void printPLList(List<PL> PLList)
         {
+            if (PLList == null) return;
             foreach (PL pl in PLList)
             {
                 string space = "";
@@ -188,12 +199,14 @@ namespace QuestionAnswering
         }
         
         //取得PLArticle
-        public static List<List<PL>> getPLArticle(string sentence)
+        public List<List<PL>> getPLArticle(string sentence)
         {
             List<List<PL>> PLArticle = new List<List<PL>>();
 
             //將填空的標籤取代成NNans
-            sentence = replaceSlot(sentence);
+            //sentence = replaceSlot(sentence);
+
+            sentence = removeULabel(sentence);  //去掉<U>標籤(保留<B>)
 
             //取得詞性標記結果
             StanfordCoreNLP.Parser sc = new StanfordCoreNLP.Parser();
@@ -203,24 +216,28 @@ namespace QuestionAnswering
             {
                 string[] LPLines = getLPLines(POSTree); //取得句子的詞性標記結果(依行分割)
                 
-                List<int> LPLinesIndent = getLPLinesIndent(LPLines);                        //取得LPLines每一行的縮排
-                List<List<int>> LPLinesIndentNote = getLPLinesIndentNote(LPLinesIndent);    //取得LPLines各縮排數有哪些行
-                
-                List<PL> tempPLList = getPLListWP(LPLines);      //取得PLList(處理words & pos)
-                tempPLList = getPLListI(tempPLList, LPLinesIndent);     //取得PLList(處理indent)
-                tempPLList = getPLListN(tempPLList, LPLinesIndentNote); //取得PLList(處理next)
+                List<PL> tempPLList = getPLListW(LPLines);  //取得PLList(處理words, pos, indent & index)
+                getPLListN(tempPLList);                     //取得PLList(處理next)
+                getPLListB(tempPLList);                     //取得PLList(處理brotherY & brotherO)
 
                 PLArticle.Add(tempPLList);
             }
+            //取得文章的斷行點，並插入null
+            List<int> segmentList = getSegmentList(sentence, rs);
+            for (int i = segmentList.Count - 1; i >= 0; i--) PLArticle.Insert(segmentList[i], null);
             return PLArticle;
         }
         //取得PLArticle
-        public static List<List<PL>> getPLArticle(List<string> sentenceList)
+        public List<List<PL>> getPLArticle(List<string> sentenceList)
         {
             //將List<string>合併為單一string
             string s = "";
-            foreach (string sentence in sentenceList) s += sentence + "\n";
-            return getPLArticle(s);
+            foreach (string sentence in sentenceList)
+            {
+                if (sentence == "\n") s = s.Trim();
+                s += sentence + " ";
+            }
+            return getPLArticle(s.Trim());
         }
     }
 }

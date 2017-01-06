@@ -15,6 +15,7 @@ namespace QuestionAnswering
         public int number;  //0: unknown, 1: singular, 2: plural
         public int gender;  //0: unknown, 1: male, 2: female, 3: both
         public int human;   //0: unknown, 1: true, 2: false
+        public List<string> infobox;    //專有名詞有Infobox
         public AnaphoraInfo(string word)
         {
             this.word = word;
@@ -22,19 +23,20 @@ namespace QuestionAnswering
             this.number = 0;
             this.gender = 0;
             this.human = 0;
+            this.infobox = new List<string>();
         }
     }
     class Anaphora
     {
         //代名詞List
-        private static List<string> PRPList = new List<string>() { "I", "me", "my", "you", "your",
+        private List<string> PRPList = new List<string>() { "I", "me", "my", "you", "your",
             "he", "him", "his", "she", "her", "it", "its", "we", "us", "our", "they", "them", "their",
             "mine", "yours", "hers", "ours", "theirs", "myself", "ourselves", "yourself", "yourselves",
             "himself", "herself", "itself", "themselves"};
 
         #region babynames.net
         //藉由babynames.net取得姓名資訊
-        private static int getNameInfo(string name)
+        private int getNameInfo(string name)
         {
             //0: 找不到該名字
             //1: 男性
@@ -59,7 +61,7 @@ namespace QuestionAnswering
             else return 0;              //找不到
         }
         //取得babynames.net網頁原始碼
-        private static string getBabynamesData(string name)
+        private string getBabynamesData(string name)
         {
             string url = "http://babynames.net/names/" + name.ToLower();
             string allWebData = "";
@@ -81,7 +83,7 @@ namespace QuestionAnswering
             return allWebData;
         }
         //由babynames.net原始碼取得名字性別
-        private static int getBabynamesGender(string allWebData)
+        private int getBabynamesGender(string allWebData)
         {
             //0: 找不到該名字
             //1: 男性
@@ -104,7 +106,7 @@ namespace QuestionAnswering
 
         #region dictionary.com
         //藉由dictionary.com取得名詞資訊
-        private static AnaphoraInfo getNounInfo(string noun)
+        private AnaphoraInfo getNounInfo(string noun)
         {
             string allWebData = getDictionaryData(noun);            //取得dictionary.com網頁原始碼
             List<string> defList = getDictionaryDef(allWebData);    //由dictionary.com原始碼取得名詞解釋(前三個)
@@ -114,7 +116,7 @@ namespace QuestionAnswering
             return ai;
         }
         //取得dictionary.com網頁原始碼
-        private static string getDictionaryData(string noun)
+        private string getDictionaryData(string noun)
         {
             string url = "http://www.dictionary.com/browse/" + noun.ToLower();
             string allWebData = "";
@@ -136,7 +138,7 @@ namespace QuestionAnswering
             return allWebData;
         }
         //由dictionary.com原始碼取得名詞解釋(第一個)
-        private static List<string> getDictionaryDef(string allWebData)
+        private List<string> getDictionaryDef(string allWebData)
         {
             List<string> defList = new List<string>();
             int first = 0, last = 0, ct = 0;
@@ -154,7 +156,7 @@ namespace QuestionAnswering
             return defList;
         }
         //去掉<>標籤的內容
-        private static string removeLabel(string str)
+        private string removeLabel(string str)
         {
             int first = 0, last = 0;
             first = str.IndexOf("<");
@@ -167,7 +169,7 @@ namespace QuestionAnswering
             return str;
         }
         //由dictionary.com名詞解釋取得名詞性別
-        private static int getDictionaryGender(List<string> defList)
+        private int getDictionaryGender(List<string> defList)
         {
             foreach (string def in defList)
             {
@@ -177,7 +179,7 @@ namespace QuestionAnswering
             return 0;
         }
         //由dictionary.com名詞解釋取得名詞是人or not
-        private static int getDictionaryHuman(List<string> defList)
+        private int getDictionaryHuman(List<string> defList)
         {
             foreach (string def in defList)
             {
@@ -191,7 +193,7 @@ namespace QuestionAnswering
 
         #region AnaphoraInfo
         //取得代名詞的AnaphoraInfo
-        private static AnaphoraInfo getPRPAnaphoraInfo(string PRP)
+        private AnaphoraInfo getPRPAnaphoraInfo(string PRP)
         {
             AnaphoraInfo ai = new AnaphoraInfo(PRP);
             ai.pos = "PRP";
@@ -242,18 +244,21 @@ namespace QuestionAnswering
             return ai;
         }
         //取得專有名詞的AnaphoraInfo
-        public static AnaphoraInfo getNNPAnaphoraInfo(string NNP)
+        public AnaphoraInfo getNNPAnaphoraInfo(string NNP)
         {
-            AnaphoraInfo ai = SaveData.loadAnaphoraInfo(NNP);       //載入AnaphoraInfo
+            SaveData saveData = new SaveData();
+            Wiki wiki = new Wiki();
+            AnaphoraInfo ai = saveData.loadAnaphoraInfo(NNP);       //載入AnaphoraInfo
             if (ai != null) return ai;
 
             string wikiTitle;
             ai = new AnaphoraInfo(NNP);
-            Infobox infobox = Wiki.getInfobox(NNP, out wikiTitle);  //取得wiki的Infobox
+            Infobox infobox = wiki.getInfobox(NNP, out wikiTitle);  //取得wiki的Infobox
             int nameGender = getNameInfo(NNP);                      //藉由babynames.net取得姓名資訊
 
             ai.pos = "NNP";
             ai.gender = nameGender;
+            if (infobox != null) ai.infobox = infobox.infobox;
             if (infobox != null && infobox.isHuman())
             {
                 ai.human = 1;       //true
@@ -283,13 +288,14 @@ namespace QuestionAnswering
                 if (nameGender == 0) ai.human = 2;  //false
                 else ai.human = 1;  //true
             }
-            SaveData.saveAnaphoraInfo(ai, NNP); //儲存AnaphoraInfo
+            saveData.saveAnaphoraInfo(ai, NNP); //儲存AnaphoraInfo
             return ai;
         }
         //取得普通名詞的AnaphoraInfo
-        private static AnaphoraInfo getNPAnaphoraInfo(string NP, bool hasNNS)
+        private AnaphoraInfo getNPAnaphoraInfo(string NP, bool hasNNS)
         {
-            AnaphoraInfo ai = SaveData.loadAnaphoraInfo(NP);    //載入AnaphoraInfo
+            SaveData saveData = new SaveData();
+            AnaphoraInfo ai = saveData.loadAnaphoraInfo(NP);    //載入AnaphoraInfo
             if (ai != null) return ai;
 
             ai = new AnaphoraInfo(NP);
@@ -299,12 +305,13 @@ namespace QuestionAnswering
             else ai.number = 1;         //singular
             ai.gender = aiGH.gender;
             ai.human = aiGH.human;
+            //ai.infobox = Wiki.getNPInfoboxByCategory(NP);   //藉由category取得一般名詞的Infobox
 
-            SaveData.saveAnaphoraInfo(ai, NP); //儲存AnaphoraInfo
+            saveData.saveAnaphoraInfo(ai, NP); //儲存AnaphoraInfo
             return ai;
         }
         //檢查兩個AnaphoraInfo是否相同
-        private static bool isSameAnaphoraInfo(AnaphoraInfo ai1, AnaphoraInfo ai2)
+        private bool isSameAnaphoraInfo(AnaphoraInfo ai1, AnaphoraInfo ai2)
         {
             if (ai1 == null || ai2 == null) return false;
             if (ai1.word == "" || ai2.word == "") return false;
@@ -312,10 +319,38 @@ namespace QuestionAnswering
             if (ai1.gender != 0 && ai2.gender != 0 && ai1.gender != 3 && ai2.gender != 3 &&
                 ai1.gender != ai2.gender) return false;
             if (ai1.human != 0 && ai2.human != 0 && ai1.human != ai2.human) return false;
+
+            //同義詞判斷(by WordNet)
+            WordNet wordNet = new WordNet();
+            bool isSynonym = false;
+            if (ai1.infobox.Count > 0 && ai2.pos != "PRP")  //代名詞不該比較同義詞
+            {
+                foreach (string s in ai1.infobox)
+                {
+                    if (wordNet.isSynonym(s, ai2.word)) //判斷是否為同義詞
+                    {
+                        isSynonym = true;
+                        break;
+                    }
+                }
+                if (!isSynonym) return false;
+            }
+            else if (ai2.infobox.Count > 0 && ai1.pos != "PRP") //代名詞不該比較同義詞
+            {
+                foreach (string s in ai2.infobox)
+                {
+                    if (wordNet.isSynonym(s, ai1.word)) //判斷是否為同義詞
+                    {
+                        isSynonym = true;
+                        break;
+                    }
+                }
+                if (!isSynonym) return false;
+            }
             return true;
         }
         //印出AnaphoraInfo
-        public static void printAnaphoraInfo(AnaphoraInfo ai)
+        public void printAnaphoraInfo(AnaphoraInfo ai)
         {
             string number = "", gender = "", human = "";
 
@@ -338,7 +373,7 @@ namespace QuestionAnswering
 
         #region Check PL
         //檢查PL裡是否有專有名詞
-        private static bool hasNNPFromPL(PL pl)
+        private bool hasNNPFromPL(PL pl)
         {
             for (int i = 0; i < pl.words.Count; i++)
                 if (pl.words[i].pos.IndexOf("NNP") == 0)
@@ -346,15 +381,51 @@ namespace QuestionAnswering
             return false;
         }
         //檢查PL裡是否有複數名詞
-        private static bool hasNNSFromPL(PL pl)
+        private bool hasNNSFromPL(PL pl)
         {
             for (int i = 0; i < pl.words.Count; i++)
                 if (pl.words[i].pos.IndexOf("NNS") == 0)
                     return true;
             return false;
         }
+        //檢查PL是否以the開頭
+        private bool hasThe(List<PL> PLList, int pIndex)
+        {
+            //目前的PL
+            foreach (WordAndPOS wap in PLList[pIndex].words)
+                if (wap.pos == "DT" && wap.word.ToLower().IndexOf("th") == 0)
+                    return true;
+            //前面的PL(Stanford Parser將that誤判成關係代名詞的情況)
+            for (int i = pIndex - 1; i >= 0; i--)
+            {
+                if (PLList[i].words.Count > 0)
+                {
+                    foreach (WordAndPOS wap in PLList[i].words)
+                        if (wap.word.ToLower() == "that")
+                            return true;
+                    return false;   //遇到第一個有words的PL但裡面沒有the
+                }
+            }
+            return false;
+        }
+        //檢查是否為 N1 of N2 結構(pIndex指向N1)
+        private bool isNofN(List<PL> PLList, int pIndex)
+        {
+            bool hasOf = false;
+            bool hasN2 = false;
+            if (PLList.Count > pIndex + 2)
+            {
+                foreach (WordAndPOS wap in PLList[pIndex + 1].words)
+                    if (wap.word == "of")
+                        hasOf = true;
+                if (PLList[pIndex + 2].pos.IndexOf("N") == 0)
+                    hasN2 = true;
+            }
+            if (hasOf && hasN2) return true;
+            return false;
+        }
         //將PL裡的名詞擷取出來
-        public static string getNounsFromPL(PL pl)
+        public string getNounsFromPL(PL pl)
         {
             string nouns = "";
             for (int i = 0; i < pl.words.Count; i++)
@@ -370,10 +441,10 @@ namespace QuestionAnswering
 
         #region False Subject
         //抓取的詞性順序。e.g. NP + VP + NP
-        private static List<string> retrievePLPOSList = new List<string>(); //phrase level
-        private static List<string> retrieveWLPOSList = new List<string>(); //word level
+        private List<string> retrievePLPOSList = new List<string>(); //phrase level
+        private List<string> retrieveWLPOSList = new List<string>(); //word level
         //設置retrievePLPOSList、retrieveWLPOSList(輸入type)
-        private static void setRetrievePOSList(int type)
+        private void setRetrievePOSList(int type)
         {
             retrievePLPOSList = new List<string>();
             retrieveWLPOSList = new List<string>();
@@ -396,7 +467,7 @@ namespace QuestionAnswering
             }
         }
         //設置retrievePOSList(輸入字串)
-        private static List<string> splitStringByComma(string type)
+        private List<string> splitStringByComma(string type)
         {
             List<string> tempList = new List<string>();
             string[] cut = type.Split(',');
@@ -406,7 +477,7 @@ namespace QuestionAnswering
         }
         //檢查是否為虛主詞
         //pIndex: 檢查PLList的cIndex項是否為虛主詞
-        public static bool isFalseSubject(List<PL> PLList, int pIndex, string word)
+        public bool isFalseSubject(List<PL> PLList, int pIndex, string word)
         {
             if (word.ToLower() != "it") return false;
             for (int i = 0; i <= 2; i++)
@@ -438,7 +509,7 @@ namespace QuestionAnswering
 
         #region Reflexive Pronoun
         //檢查是否為強調意義的反身代名詞(更改為只要是反身代名詞就不處理Anaphora)
-        private static bool isReflexivePronoun(string word)
+        private bool isReflexivePronoun(string word)
         {
             //檢查是否為反身代名詞(利用PRPList)
             bool isRP = false;
@@ -450,11 +521,16 @@ namespace QuestionAnswering
 
         #region Transform Anaphora
         //轉換Anaphora
-        public static void transformAnaphora(List<List<PL>> PLArticle)
+        public void transformAnaphora(List<List<PL>> PLArticle)
         {
             int aIndex = 0; //count for Article
             foreach (List<PL> PLList in PLArticle)
             {
+                if (PLList == null)
+                {
+                    aIndex += 1;
+                    continue;
+                }
                 int pIndex = 0; //count for PLList
                 foreach (PL pl in PLList)
                 {
@@ -484,11 +560,15 @@ namespace QuestionAnswering
                                     }
                                 }
                             }
-                            else if (wIndex == 0 && !hasNNPFromPL(pl))   //開頭是冠詞the、that等的普通名詞
+                            else if (wIndex == 0)   //開頭是冠詞the、that等的普通名詞
                             {
-                                bool hasNNS = hasNNSFromPL(pl);     //檢查是否有複數名詞
+                                if (hasNNPFromPL(pl)) continue;         //不能有專有名詞
+                                if (!hasThe(PLList, pIndex)) continue;  //要以the開頭
+                                if (isNofN(PLList, pIndex)) continue;   //不能是 N1 of N2 結構
+
                                 string nouns = getNounsFromPL(pl);  //將PL裡的名詞擷取出來
                                 if (nouns == "") continue;
+                                bool hasNNS = hasNNSFromPL(pl);     //檢查是否有複數名詞
                                 AnaphoraInfo ai = getNPAnaphoraInfo(nouns, hasNNS);                 //取得普通名詞的AnaphoraInfo
                                 PL antecedentPL = findAntecedent(PLArticle, aIndex, pIndex, ai);    //找出普通名詞的Antecedent(Start)
                                 if (antecedentPL != null)   //找到Antecedent
@@ -508,44 +588,53 @@ namespace QuestionAnswering
         #endregion
 
         #region Find Antecedent
+        //檢查PL是否為填空標籤
+        private bool isSlotLabel(PL pl)
+        {
+            foreach (WordAndPOS wap in pl.words)
+                if (wap.word.IndexOf("<B") == 0) return true;
+            return false;
+        }
         //aIndex: 目前處理到第幾個句子
         //pIndex: 目前處理到第幾個PL
         //ai: 要被取代的Anaphora資訊
-        private static PL findAntecedent(List<List<PL>> PLArticle, int aIndex, int pIndex, AnaphoraInfo ai)
+        private PL findAntecedent(List<List<PL>> PLArticle, int aIndex, int pIndex, AnaphoraInfo ai)
         {
             PL antecedentPL = null;
-            int ct = 0;
+            //int ct = 0;
             //向前找
             for (int i = aIndex; i >= 0; i--)
             {
-                ct += 1;
-                if (ct > 3) break;  //範圍至前三句
+                //ct += 1;
+                //if (ct > 3) break;  //範圍至前三句
+                if (PLArticle[i] == null) break;    //遇到中斷點
                 antecedentPL = findAntecedent(PLArticle[i], pIndex, ai);
                 if (antecedentPL != null) return antecedentPL;  //找到antecedentPL
+                pIndex = -1;
             }
             return antecedentPL;
         }
-        private static PL findAntecedent(List<PL> PLList, int pIndex, AnaphoraInfo ai)
+        private PL findAntecedent(List<PL> PLList, int pIndex, AnaphoraInfo ai)
         {
             for (int i = 0; i < PLList.Count; i++)
             {
                 if (i == pIndex)    //已經檢查到Anaphora所在的PL
                 {
                     pIndex = -1;
-                    continue;
+                    break;
                 }
+                if (isSlotLabel(PLList[i])) continue;  //檢查PL是否為填空標籤
                 if (PLList[i].words.Count != 0 && evaluateAntecedent(ai, PLList[i]))    //評估Antecedent
                 {
                     return PLList[i];
                 }
-                pIndex = -1;
             }
             return null;
         }
         //評估Antecedent
         //ai: 要被取代的Anaphora資訊
         //pl: 要被評估的Antecedent PL
-        private static bool evaluateAntecedent(AnaphoraInfo ai, PL pl)
+        private bool evaluateAntecedent(AnaphoraInfo ai, PL pl)
         {
             bool hasNNP = hasNNPFromPL(pl);     //檢查PL裡是否有專有名詞
             bool hasNNS = hasNNSFromPL(pl);     //檢查PL裡是否有複數名詞
@@ -558,26 +647,28 @@ namespace QuestionAnswering
                     AnaphoraInfo aiNNP = getNNPAnaphoraInfo(nouns); //取得專有名詞的AnaphoraInfo
                     return isSameAnaphoraInfo(ai, aiNNP);           //檢查兩個AnaphoraInfo是否相同
                 }
-                else        //不是專有名詞
+                /*else        //不是專有名詞
                 {
                     AnaphoraInfo aiNP = getNPAnaphoraInfo(nouns, hasNNS);   //取得普通名詞的AnaphoraInfo
                     return isSameAnaphoraInfo(ai, aiNP);                    //檢查兩個AnaphoraInfo是否相同
-                }
+                }*/
             }
             else if (ai.pos == "NP")    //要被取代的Anaphora是普通名詞
             {
                 if (hasNNP)  //是專有名詞
                 {
                     //除了AnaphoraInfo，還要檢查Anaphora的Infobox和Antecedent是否為同義詞
+                    Thesaurus thesaurus = new Thesaurus();
+                    Wiki wiki = new Wiki();
                     string wikiTitle;
                     bool isSyn = false;
-                    Infobox infobox = Wiki.getInfobox(nouns, out wikiTitle);
+                    Infobox infobox = wiki.getInfobox(nouns, out wikiTitle);
                     if (infobox != null)
                     {
                         foreach (string ib in infobox.infobox)
                         {
                             string[] ary = ib.Split(' ');
-                            foreach (string str in ary) if (Thesaurus.hasSynonym(str, ai.word)) isSyn = true;
+                            foreach (string str in ary) if (thesaurus.hasSynonym(str, ai.word)) isSyn = true;
                         }
                     }
                     //else isSyn = true;
@@ -592,7 +683,7 @@ namespace QuestionAnswering
 
         #region Transform WAPList
         //將代名詞的Anaphora取代成Antecedent
-        private static List<WordAndPOS> transformPRPAnaphoraWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
+        private List<WordAndPOS> transformPRPAnaphoraWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
         {
             List<WordAndPOS> complexWAPList = new List<WordAndPOS>();
             bool hasTransformed = false;
@@ -616,13 +707,13 @@ namespace QuestionAnswering
             return complexWAPList;
         }
         //將普通名詞的Anaphora取代成Antecedent
-        private static List<WordAndPOS> transformNPAnaphoraWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
+        private List<WordAndPOS> transformNPAnaphoraWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
         {
             printWAPList(AnaphoraWAPList, AntecedentWAPList);   //印出AnaphoraWAPList和AntecedentWAPList
             return AntecedentWAPList;   //整個都換
         }
         //印出AnaphoraWAPList和AntecedentWAPList
-        private static void printWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
+        private void printWAPList(List<WordAndPOS> AnaphoraWAPList, List<WordAndPOS> AntecedentWAPList)
         {
             Console.Write("將 ");
             foreach (WordAndPOS wap in AnaphoraWAPList) Console.Write(wap.word + " ");
@@ -631,7 +722,7 @@ namespace QuestionAnswering
             Console.WriteLine("。");
         }
         //判斷List<WordAndPOS>是否有's
-        private static bool hasQuotationS(List<WordAndPOS> wapList)
+        private bool hasQuotationS(List<WordAndPOS> wapList)
         {
             foreach (WordAndPOS wap in wapList) if (wap.word == "'s") return true;
             return false;

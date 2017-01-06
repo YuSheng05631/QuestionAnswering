@@ -9,11 +9,12 @@ namespace QuestionAnswering
     class Clause
     {
         //判斷兩個詞是否同根
-        public static bool isDerivative(string w1, string w2)
+        public bool isDerivative(string w1, string w2)
         {
             //先經過Stem
-            w1 = Stem.getStem(w1);
-            w2 = Stem.getStem(w2);
+            Stem stem = new Stem();
+            w1 = stem.getStem(w1);
+            w2 = stem.getStem(w2);
             //找出最大連續相同數。 e.g. happy & happiness: 4，apple & axxxe: 1
             int maxSame = -1;
             for (int i = 0; i < w1.Length; i++)
@@ -35,27 +36,30 @@ namespace QuestionAnswering
             return false;
         }
         //判斷是否為需要的詞性
-        private static bool isNeedPOS(WordAndPOS wap)
+        private bool isNeedPOS(WordAndPOS wap)
         {
             if (wap.pos[0] == 'N' || wap.pos[0] == 'V' || wap.pos.IndexOf("JJ") == 0) return true;
             else return false;
         }
         //判斷兩個WordAndPOS是否關聯
-        private static bool isRelevant(WordAndPOS wap1, WordAndPOS wap2)
+        private bool isRelevant(WordAndPOS wap1, WordAndPOS wap2)
         {
-            if (Stem.getStem(wap1.word) == Stem.getStem(wap2.word)) return true;    //詞相同
-            else if (wap1.word.IndexOf("NNans") == 0 && wap2.pos[0] == 'N') return true;
+            Stem stem = new Stem();
+            Thesaurus thesaurus = new Thesaurus();
+            if (stem.getStem(wap1.word) == stem.getStem(wap2.word)) return true;    //詞相同
+            else if ((wap1.word.IndexOf("<B") == 0 || wap1.word.IndexOf("NNans") == 0) && wap2.pos[0] == 'N') return true;
             else if (wap1.pos[0] == wap2.pos[0])    //詞性相同
             {
-                return Thesaurus.hasAntonym(wap1.word, wap2.word);  //判斷是否為同義詞
+                return thesaurus.hasSynonym(wap1.word, wap2.word);  //判斷是否為同義詞
             }
             else    //詞性不同
             {
                 return isDerivative(wap1.word, wap2.word);  //判斷兩個詞是否同根
             }
         }
-        public static void match(List<PL> PLList1, List<PL> PLList2)
+        public void match(List<PL> PLList1, List<PL> PLList2)
         {
+            if (PLList1 == null || PLList2 == null) return;
             List<WordAndPOS> matchList1 = new List<WordAndPOS>();
             List<WordAndPOS> matchList2 = new List<WordAndPOS>();
             int pointer = 0;
@@ -89,10 +93,15 @@ namespace QuestionAnswering
                 }
             }
 
+            if (matchList1.Count <= 1) return;
+
+            Sentence sen = new Sentence();
+            sen.printPLList(PLList2);
             foreach (WordAndPOS wap in matchList1) Console.Write(wap.word + ", ");
             Console.WriteLine();
             foreach (WordAndPOS wap in matchList2) Console.Write(wap.word + ", ");
             Console.WriteLine();
+            Console.ReadLine();
         }
     }
 }

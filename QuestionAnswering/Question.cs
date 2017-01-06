@@ -9,7 +9,7 @@ namespace QuestionAnswering
     class Question
     {
         //取得問句類型
-        public static int getQuestionType(List<PL> PLList)
+        public int getQuestionType(List<PL> PLList)
         {
             //0. 非問句
             //1. SQ連接NP+VP。 e.g. What do you mean?
@@ -23,7 +23,7 @@ namespace QuestionAnswering
             return type;
         }
         //取得問句類型1or2
-        private static int getQuestionType1or2(List<PL> PLList)
+        private int getQuestionType1or2(List<PL> PLList)
         {
             foreach (PL pl in PLList)
             {
@@ -51,7 +51,7 @@ namespace QuestionAnswering
             return 0;
         }
         //取得問句類型3
-        private static int getQuestionType3(List<PL> PLList)
+        private int getQuestionType3(List<PL> PLList)
         {
             foreach (PL pl in PLList)
             {
@@ -67,17 +67,17 @@ namespace QuestionAnswering
             return 0;
         }
         //取得問句類型4
-        private static int getQuestionType4(List<PL> PLList)
+        private int getQuestionType4(List<PL> PLList)
         {
             foreach (PL pl in PLList)
                 foreach (WordAndPOS wap in pl.words)
-                    if (wap.word.IndexOf("NNans") == 0)
+                    if (wap.word.IndexOf("<B") == 0)
                         return 4;
             return 0;
         }
 
         //將問句轉換成有NNans的陳述句
-        public static List<PL> transformQuestion(List<PL> PLList)
+        public List<PL> transformQuestion(List<PL> PLList)
         {
             //讀取整個句子的每個詞，重組一個含有NNans新的句子，再使用Sentence.getPLArticle()
             string sentence = "";
@@ -96,11 +96,12 @@ namespace QuestionAnswering
             {
                 sentence = "NNans is " + transformQuestionType3(PLList);
             }
-            List<List<PL>> PLArticle = Sentence.getPLArticle(sentence);
+            Sentence sen = new Sentence();
+            List<List<PL>> PLArticle = sen.getPLArticle(sentence);
             return PLArticle[0];
         }
         //將問句轉換成有NNans的陳述句type1
-        private static string transformQuestionType1(List<PL> PLList, string SQWord)
+        private string transformQuestionType1(List<PL> PLList, string SQWord)
         {
             //WH、SQ不加入sentence，第一個動詞後加上NNans，加上NNans後將之後的WH、SQ加入sentence
             //進行式：若SQ底下的VP是VBG，將SQ的word加入sentence，位置是SQ底下的NP後
@@ -133,7 +134,7 @@ namespace QuestionAnswering
             return sentence;
         }
         //將問句轉換成有NNans的陳述句type2
-        private static string transformQuestionType2(List<PL> PLList)
+        private string transformQuestionType2(List<PL> PLList)
         {
             //sentence開頭加上NNans(在transformQuestion()中加上)，隨後的WH不加入sentence，第二個之後的WH加入sentence
             string sentence = "";
@@ -153,7 +154,7 @@ namespace QuestionAnswering
             return sentence;
         }
         //將問句轉換成有NNans的陳述句type3
-        private static string transformQuestionType3(List<PL> PLList)
+        private string transformQuestionType3(List<PL> PLList)
         {
             //從第一個S到包含NP的S之前的內容都不加入sentence
             string sentence = "";
@@ -166,7 +167,7 @@ namespace QuestionAnswering
             return sentence;
         }
         //取得SQ的Word (transformQuestion用)
-        private static string getSQWordTraversal(List<PL> PLList)
+        private string getSQWordTraversal(List<PL> PLList)
         {
             string SQWord = "";
             foreach (PL pl in PLList)
